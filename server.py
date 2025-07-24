@@ -1,32 +1,75 @@
-# server.py
-from flask import Flask, request, jsonify
-import subprocess
-import tempfile
+from flask import Flask, request, jsonify, Response, stream_with_context
+import uuid
+import queue
+import time
 
 app = Flask(__name__)
-API_TOKEN = "test123"  # einfacher Token für lokale Auth
+API_TOKEN = "test123"
 
-@app.route("/execute", methods=["POST"])
-def execute():
+task_queue = queue.Queue()
+task_output = {}  # task_id → {"lines": [...], "done": bool}
+
+@app.route("/submit", methods=["POST"])
+def submit():
     data = request.json
-    token = data.get("token")
-    code = data.get("code")
+    if data.get("token") != API_TOKEN:
+        return jsonify({"error": "Unauthorized"}), 403
 
-    if token != API_TOKEN:
+    task_id = str(uuid.uuid4())
+    task = {"id": task_id, "code": data["code"]}
+    task_output[task_id] = {"lines": [], "done": False}
+    task_queue.put(task)
+    return jsonify({"task_id": task_id})
+
+@app.route("/get_task", methods=["POST"])
+def get_task():
+    data = request.json
+    if data.get("token") != API_TOKEN:
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
-        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
-            f.write(code)
-            f.flush()
-            result = subprocess.run(["python3", f.name], capture_output=True, timeout=10)
+        task = task_queue.get_nowait()
+        return jsonify(task)
+    except queue.Empty:
+        return jsonify({"task": None})
 
-        return jsonify({
-            "output": result.stdout.decode(),
-            "error": result.stderr.decode()
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route("/submit_output/<task_id>", methods=["POST"])
+def submit_output(task_id):
+    line = request.json.get("line")
+
+    if task_id not in task_output:
+        return jsonify({"error": "Unknown task_id"}), 404
+
+    if line == "[TASK_DONE]":
+        task_output[task_id]["done"] = True
+    else:
+        task_output[task_id]["lines"].append(line)
+
+    return "", 204
+
+@app.route("/stream/<task_id>")
+def stream(task_id):
+    @stream_with_context
+    def generate():
+        seen = 0
+        while True:
+            data = task_output.get(task_id)
+            if not data:
+                break
+
+            lines = data["lines"]
+            done = data["done"]
+
+            while seen < len(lines):
+                yield f"{lines[seen]}\n"
+                seen += 1
+
+            if done:
+                break
+
+            time.sleep(0.5)
+
+    return Response(generate(), mimetype="text/plain")
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000)
+    app.run(host="0.0.0.0", port=5000)

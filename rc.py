@@ -1,4 +1,3 @@
-# rc.py
 import typer, requests, os, json
 
 app = typer.Typer()
@@ -21,20 +20,21 @@ def run(script: str):
     with open(script, "r") as f:
         code = f.read()
 
-    res = requests.post(f"{cfg['server']}/execute", json={
+    res = requests.post(f"{cfg['server']}/submit", json={
         "token": cfg["token"],
         "code": code
     })
 
     if res.ok:
-        data = res.json()
-        typer.echo("📤 Ausgabe:")
-        print(data["output"])
-        if data["error"]:
-            typer.echo("⚠️ Fehler:")
-            print(data["error"])
+        task_id = res.json()["task_id"]
+        typer.echo(f"🚀 Task eingereicht: {task_id}\n📡 Warte auf Live-Ausgabe...\n")
+
+        with requests.get(f"{cfg['server']}/stream/{task_id}", stream=True) as r:
+            for line in r.iter_lines():
+                if line:
+                    print(line.decode())
     else:
-        typer.echo("❌ Fehler:")
+        typer.echo("❌ Fehler beim Absenden:")
         print(res.text)
 
 if __name__ == "__main__":
