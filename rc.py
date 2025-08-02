@@ -1,5 +1,8 @@
 import typer, requests, os, json
 
+server = []
+token = []
+
 app = typer.Typer()
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
 
@@ -13,6 +16,8 @@ def login(token: str, server: str):
     with open(CONFIG_PATH, "w") as f:
         json.dump({"token": token, "server": server}, f)
     typer.echo("✅ Konfiguration gespeichert.")
+    print("CONFIG_PATH:", CONFIG_PATH)
+
 
 @app.command()
 def run(script: str):
