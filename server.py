@@ -2,9 +2,21 @@ from flask import Flask, request, jsonify, Response, stream_with_context
 import uuid
 import queue
 import time
+import json
+import os
+
+# Lade Konfiguration aus ~/.remotecompute/config.json
+CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
+
+if not os.path.exists(CONFIG_PATH):
+    raise FileNotFoundError("❌ config.json nicht gefunden. Bitte zuerst mit 'rc login' konfigurieren.")
+
+with open(CONFIG_PATH) as f:
+    config = json.load(f)
+
+API_TOKEN = config["token"]  # Kein Fallback mehr – muss vorhanden sein
 
 app = Flask(__name__)
-API_TOKEN = "test123"
 
 task_queue = queue.Queue()
 task_output = {}  # task_id → {"lines": [...], "done": bool}
