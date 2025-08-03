@@ -4,27 +4,58 @@ import queue
 import time
 import json
 import os
+import typer
 
-# Lade Konfiguration aus ~/.remotecompute/config.json
-CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
+CONFIG_PATH = "~/.remotecompute/serverconfig.json"
+os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
-if not os.path.exists(CONFIG_PATH):
-    raise FileNotFoundError("❌ config.json nicht gefunden. Bitte zuerst mit 'rc login' konfigurieren.")
+ascii_art = r"""
+                __       
+  ____   _____ / /_ ____ 
+ / __ \ / ___// __// __ \
+/ /_/ // /__ / /_ / /_/ /
+\____/ \___/ \__/ \____/ 
+"""
 
-with open(CONFIG_PATH) as f:
-    config = json.load(f)
+typer.echo(ascii_art)
 
-API_TOKEN = config["token"]  # Kein Fallback mehr – muss vorhanden sein
+# Falls Datei nicht existiert oder leer ist: Token abfragen und Datei schreiben
+if not os.path.exists(CONFIG_PATH) or os.stat(CONFIG_PATH).st_size == 0:
+    token = input("🔐 Bitte Token für diesen Server eingeben: ").strip()
+    config = {"valid_tokens": [token]}
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(config, f, indent=2)
+    print(f"✅ Token gespeichert unter {CONFIG_PATH}")
+else:
+    # Datei existiert, lade Konfiguration
+    with open(CONFIG_PATH) as f:
+        config = json.load(f)
+
+    # Prüfe, ob gültige Tokens vorhanden sind
+    if "valid_tokens" not in config:
+        config["valid_tokens"] = []
+
+    # Token abfragen, falls gewünscht
+    new_token = input("➕ Optional: Weiteren Token hinzufügen? (leer lassen zum Überspringen): ").strip()
+    if new_token:
+        if new_token not in config["valid_tokens"]:
+            config["valid_tokens"].append(new_token)
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(config, f, indent=2)
+            print("✅ Neuer Token hinzugefügt.")
+        else:
+            print("ℹ️ Token bereits vorhanden.")
+
+VALID_TOKENS = config["valid_tokens"]
 
 app = Flask(__name__)
-
 task_queue = queue.Queue()
 task_output = {}  # task_id → {"lines": [...], "done": bool}
 
 @app.route("/submit", methods=["POST"])
 def submit():
     data = request.json
-    if data.get("token") != API_TOKEN:
+    if data.get("token") not in VALID_TOKENS:
         return jsonify({"error": "Unauthorized"}), 403
 
     task_id = str(uuid.uuid4())
@@ -36,7 +67,7 @@ def submit():
 @app.route("/get_task", methods=["POST"])
 def get_task():
     data = request.json
-    if data.get("token") != API_TOKEN:
+    if data.get("token") not in VALID_TOKENS:
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
