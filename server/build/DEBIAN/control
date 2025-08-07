@@ -4,5 +4,5 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Depends: python3
-Maintainer: DeinName
+Maintainer: Dein Name
 Description: Remote Compute Server + Runner

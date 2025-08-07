@@ -6,7 +6,7 @@ import json
 import os
 import typer
 
-CONFIG_PATH = "~/.remotecompute/serverconfig.json"
+CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 ascii_art = r"""
