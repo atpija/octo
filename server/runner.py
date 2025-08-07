@@ -1,12 +1,12 @@
 import time, json, requests, subprocess, tempfile, os
 
-CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
+CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
 with open(CONFIG_PATH) as f:
     cfg = json.load(f)
 
-SERVER = cfg["server"]
-TOKEN = cfg["token"]
+SERVER = "http://127.0.0.1:5000"
+TOKEN = cfg["valid_tokens"][0]
 
 def poll_task():
     try:
@@ -40,7 +40,7 @@ while True:
                 f.flush()
 
                 proc = subprocess.Popen(
-                    ["python", "-u", f.name],
+                    ["python3", "-u", f.name],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True
