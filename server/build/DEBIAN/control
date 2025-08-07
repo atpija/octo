@@ -1,0 +1,8 @@
+Package: remotecompute-server
+Version: 0.1
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: python3
+Maintainer: DeinName
+Description: Remote Compute Server + Runner
