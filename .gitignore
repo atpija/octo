@@ -1,0 +1,50 @@
+# Ignore custom config
+.remotecompute/
+
+# -------------------------
+# Python Build Artefakte
+# -------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.spec
+
+# -------------------------
+# PyInstaller / Build Output
+# -------------------------
+build/
+dist/
+
+# -------------------------
+# Installer Packages
+# -------------------------
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# -------------------------
+# Logs & Runtime Data
+# -------------------------
+*.log
+*.pid
+
+# -------------------------
+# Virtual Environments
+# -------------------------
+venv/
+.env/
+
+# -------------------------
+# Editor Settings
+# -------------------------
+.vscode/
+
+# -------------------------
+# OS-Specific Files
+# -------------------------
+.DS_Store
+Thumbs.db
+

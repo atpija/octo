@@ -1,8 +1,0 @@
-Package: octo-client
-Version: 0.1
-Section: utils
-Priority: optional
-Architecture: amd64
-Depends: python3
-Maintainer: DeinName
-Description: Octo Remote Compute Client CLI
