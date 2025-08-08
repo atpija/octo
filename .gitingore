@@ -1,5 +1,0 @@
-# Ignore virtual environments
-venv/
-
-# Ignore custom config
-.remotecompute/
