@@ -1,8 +1,8 @@
-Package: remotecompute-client
+Package: octo-client
 Version: 0.1
 Section: utils
 Priority: optional
 Architecture: amd64
 Depends: python3
 Maintainer: DeinName
-Description: Remote Compute Client CLI
+Description: Octo Remote Compute Client CLI
