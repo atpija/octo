@@ -5,57 +5,81 @@ import time
 import json
 import os
 import typer
+import threading
+
+app = Flask(__name__)
+task_queue = queue.Queue()
+task_output = {}  # task_id → {"lines": [...], "done": bool}
 
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+
+cli = typer.Typer(help="Octo Server CLI")
 
 ascii_art = r"""
                 __       
   ____   _____ / /_ ____ 
  / __ \ / ___// __// __ \
 / /_/ // /__ / /_ / /_/ /
-\____/ \___/ \__/ \____/ 
+\____/ \___/ \__/ \____/
 """
 
-typer.echo(ascii_art)
+# ---------------------------
+# Config Handling
+# ---------------------------
 
-# Falls Datei nicht existiert oder leer ist: Token abfragen und Datei schreiben
-if not os.path.exists(CONFIG_PATH) or os.stat(CONFIG_PATH).st_size == 0:
-    token = input("🔐 Bitte Token für diesen Server eingeben: ").strip()
-    config = {"valid_tokens": [token]}
+def load_config():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH) as f:
+            config = json.load(f)
+    else:
+        config = {"valid_tokens": []}
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+    config.setdefault("valid_tokens", [])
+    return config
+
+def save_config(config):
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f, indent=2)
-    print(f"✅ Token gespeichert unter {CONFIG_PATH}")
-else:
-    # Datei existiert, lade Konfiguration
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
 
-    # Prüfe, ob gültige Tokens vorhanden sind
-    if "valid_tokens" not in config:
-        config["valid_tokens"] = []
+def add_token(token: str):
+    config = load_config()
+    if token not in config["valid_tokens"]:
+        config["valid_tokens"].append(token)
+        save_config(config)
+        typer.echo(f"✅ Token added: {token}")
+    else:
+        typer.echo(f"ℹ️ Token already exists: {token}")
 
-    # Token abfragen, falls gewünscht
-    new_token = input("➕ Optional: Weiteren Token hinzufügen? (leer lassen zum Überspringen): ").strip()
-    if new_token:
-        if new_token not in config["valid_tokens"]:
-            config["valid_tokens"].append(new_token)
-            with open(CONFIG_PATH, "w") as f:
-                json.dump(config, f, indent=2)
-            print("✅ Neuer Token hinzugefügt.")
-        else:
-            print("ℹ️ Token bereits vorhanden.")
+def remove_token(token: str):
+    config = load_config()
+    if token in config["valid_tokens"]:
+        config["valid_tokens"].remove(token)
+        save_config(config)
+        typer.echo(f"✅ Token removed: {token}")
+    else:
+        typer.echo(f"❌ Token not found: {token}")
 
-VALID_TOKENS = config["valid_tokens"]
+def list_tokens():
+    config = load_config()
+    if config["valid_tokens"]:
+        typer.echo("🔐 Valid Tokens:")
+        for t in config["valid_tokens"]:
+            typer.echo(f"- {t}")
+    else:
+        typer.echo("ℹ️ No tokens configured.")
 
-app = Flask(__name__)
-task_queue = queue.Queue()
-task_output = {}  # task_id → {"lines": [...], "done": bool}
+# ---------------------------
+# Flask Endpoints
+# ---------------------------
 
 @app.route("/submit", methods=["POST"])
 def submit():
     data = request.json
-    if data.get("token") not in VALID_TOKENS:
+    token = data.get("token")
+    config = load_config()
+    if token not in config["valid_tokens"]:
         return jsonify({"error": "Unauthorized"}), 403
 
     task_id = str(uuid.uuid4())
@@ -67,7 +91,9 @@ def submit():
 @app.route("/get_task", methods=["POST"])
 def get_task():
     data = request.json
-    if data.get("token") not in VALID_TOKENS:
+    token = data.get("token")
+    config = load_config()
+    if token not in config["valid_tokens"]:
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
@@ -114,5 +140,34 @@ def stream(task_id):
 
     return Response(generate(), mimetype="text/plain")
 
+# ---------------------------
+# Typer CLI Commands
+# ---------------------------
+
+@cli.command()
+def server(host: str = "0.0.0.0", port: int = 5000):
+    """
+    Starte den Octo-Server.
+    """
+    typer.echo(ascii_art)
+    config = load_config()
+    typer.echo(f"🚀 Starting Octo Server on http://{host}:{port}")
+    app.run(host=host, port=port)
+
+@cli.command()
+def token_add(token: str):
+    """Füge einen neuen Token hinzu."""
+    add_token(token)
+
+@cli.command()
+def token_remove(token: str):
+    """Entferne einen Token."""
+    remove_token(token)
+
+@cli.command()
+def token_list():
+    """Liste alle gültigen Tokens auf."""
+    list_tokens()
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    cli()

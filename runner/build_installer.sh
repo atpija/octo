@@ -1,20 +1,20 @@
 #!/bin/bash
-# client/build_installer.sh
+# runner/build_installer.sh
 
-APP_NAME="octo-client"
+APP_NAME="octo-runner"
 VERSION="0.1"
 BUILD_DIR="build"
 INSTALL_DIR="$BUILD_DIR/usr/local/bin"
 DEB_DIR="$BUILD_DIR/DEBIAN"
 
-# Vorherige Builds löschen
+# Alte Builds löschen
 rm -rf "$BUILD_DIR" dist build
 
 mkdir -p "$INSTALL_DIR" "$DEB_DIR"
 
-# Konvertiere rc.py zu ausführbarer Datei "octo"
-pyinstaller --onefile rc.py --name octo
-mv dist/octo "$INSTALL_DIR/octo"
+# runner.py zu ausführbarer Datei "octo-runner"
+pyinstaller --onefile runner.py --name octo-runner
+mv dist/octo-runner "$INSTALL_DIR/octo-runner"
 
 # DEBIAN/control Datei
 cat > "$DEB_DIR/control" <<EOF
@@ -25,10 +25,10 @@ Priority: optional
 Architecture: amd64
 Depends: python3
 Maintainer: Jan Pirringer
-Description: Octo Remote Compute Client CLI
+Description: Octo Remote Compute Runner CLI
 EOF
 
 # Paket bauen
 dpkg-deb --build "$BUILD_DIR" "${APP_NAME}_${VERSION}_amd64.deb"
-echo "✅ Client Installer gebaut: ${APP_NAME}_${VERSION}_amd64.deb"
+echo "✅ Runner Installer gebaut: ${APP_NAME}_${VERSION}_amd64.deb"
 
