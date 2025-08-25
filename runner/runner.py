@@ -8,7 +8,7 @@ ascii_art = r"""
   ____   _____ / /_ ____ 
  / __ \ / ___// __// __ \
 / /_/ // /__ / /_ / /_/ /
-\____/ \___/ \__/ \____/ 2
+\____/ \___/ \__/ \____/
 """
 
 # ---------------------------
@@ -91,7 +91,8 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                 print("📂 Files inside workdir:")
                 for root, dirs, files in os.walk(workdir):
                     for f in files:
-                        print("   ", os.path.relpath(os.path.join(root, f), workdir))
+                        rel_path = os.path.relpath(os.path.join(root, f), workdir)
+                        print("   ", rel_path)
 
                 main_path = os.path.join(workdir, entry_file)
                 print("👉 Looking for entry file:", main_path)
@@ -99,7 +100,6 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                 if not os.path.exists(main_path):
                     msg = f"[RUNNER ERROR] Startfile {entry_file} not found in {workdir}"
                     send_output(server, task_id, msg)
-                    print("❌", msg)
                     send_output(server, task_id, "[TASK_FAILED]")
                     continue
 
@@ -108,7 +108,7 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
                     "python:3.11-slim",
-                    "python", f"/workspace/{entry_file}"
+                    "python", "-u" ,f"/workspace/{entry_file}"
                 ]
                 print("🐳 Running docker command:", docker_cmd)
 
@@ -116,12 +116,14 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                     docker_cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
-                    text=True
+                    text=True,
+                    bufsize=1
                 )
 
-                for line in proc.stdout:
-                    send_output(server, task_id, line.strip())
-                    print("▶", line.strip())
+                for line in iter(proc.stdout.readline, ''):
+                    line = line.strip()
+                    if line:
+                        send_output(server, task_id, line)
 
                 proc.stdout.close()
                 proc.wait()
