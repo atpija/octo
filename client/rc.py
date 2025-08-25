@@ -4,10 +4,10 @@
 # - `octo login --token ... --server ...` speichert Token + Server
 # - `octo run path/to/script.py` packt den gesamten Projektordner in ein ZIP,
 #   und sendet ZIP + Entry-File-Name an den Server.
-# - Streamt Live-Output zurück.
+# - Streamt Live-Output zurück (Realtime Logs).
 # -----------------------------------------------------------------------------
 
-import typer, requests, os, json, zipfile, tempfile
+import typer, requests, os, json, zipfile, tempfile, sys
 
 app = typer.Typer()
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
@@ -27,7 +27,7 @@ def zip_project(entry_path: str) -> tuple[str, str]:
     """
     Packt den gesamten Ordner des Entry-Files in ein temporäres ZIP.
     Gibt (zip_path, entry_file_relpfad) zurück.
-    - entry_file_relpfad ist der relativ Pfad zum Projektwurzel, z.B. 'sub/test.py'
+    - entry_file_relpfad ist der relative Pfad zum Projektwurzel, z.B. 'sub/test.py'
     """
     entry_abs = os.path.abspath(entry_path)
     if not os.path.isfile(entry_abs):
@@ -82,11 +82,22 @@ def run(path: str = typer.Argument(..., help="Pfad zum Start-Script (Entry-File)
         task_id = res.json()["task_id"]
         typer.echo(f"🚀 Task submitted: {task_id}\n📡 Waiting for Live-Output...\n")
 
-        # Live-Output streamen (Server streamt plain text Zeilen)
+        # Live-Output streamen
         with requests.get(f"{cfg['server']}/stream/{task_id}", stream=True) as r:
             for line in r.iter_lines():
-                if line:
-                    print(line.decode())
+                if not line:
+                    continue
+                msg = line.decode().strip()
+
+                if msg == "[TASK_DONE]":
+                    print("✅ Task finished successfully")
+                    break
+                elif msg == "[TASK_FAILED]":
+                    print("❌ Task failed")
+                    break
+                else:
+                    print(msg)
+                sys.stdout.flush()
     else:
         typer.echo("❌ Error while submitting:")
         print(res.text)
