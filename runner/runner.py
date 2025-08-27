@@ -41,8 +41,11 @@ def poll_task(server, token):
         if res.ok:
             task = res.json()
             if task.get("id") and task.get("archive"):
-                # ZIP vom Server laden
-                archive_url = f"{server}/download/{task['id']}"
+                # Archive-URL zusammensetzen
+                archive_url = task["archive"]
+                if archive_url.startswith("/"):
+                    archive_url = server.rstrip("/") + archive_url
+
                 resp = requests.get(archive_url)
                 if resp.ok:
                     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
@@ -108,7 +111,7 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
                     "python:3.11-slim",
-                    "python", "-u" ,f"/workspace/{entry_file}"
+                    "python", "-u", f"/workspace/{entry_file}"
                 ]
                 print("🐳 Running docker command:", docker_cmd)
 

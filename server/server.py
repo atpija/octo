@@ -3,7 +3,7 @@
 # Octo Server:
 # - /submit nimmt multipart/form-data (token, entry, archive-ZIP) entgegen
 # - legt Task in Queue
-# - /get_task (POST, JSON {token}) liefert Task + absolute archive_url
+# - /get_task (POST, JSON {token}) liefert Task + relative archive_url
 # - /download/<task_id> gibt ZIP aus tasks/ zurück
 # - /submit_output/<task_id> nimmt Runner-Logs an
 # - /stream/<task_id> streamt Logs zum Client
@@ -88,8 +88,9 @@ def submit():
 @app.route("/get_task", methods=["POST"])
 def get_task():
     """Runner fragt einen neuen Task ab."""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     token = data.get("token")
+
     config = load_config()
     if token not in config["valid_tokens"]:
         return jsonify({"error": "Unauthorized"}), 403
@@ -100,7 +101,7 @@ def get_task():
         return jsonify({
             "id": task["id"],
             "entry": task["entry"],
-            "archive": f"{request.host_url}download/{task['id']}"
+            "archive": f"/download/{task['id']}"
         })
     except queue.Empty:
         return jsonify({"task": None})
@@ -116,7 +117,8 @@ def download(task_id):
 @app.route("/submit_output/<task_id>", methods=["POST"])
 def submit_output(task_id):
     """Runner sendet Output-Zeilen zurück."""
-    line = (request.json or {}).get("line")
+    data = request.get_json(silent=True) or {}
+    line = data.get("line")
 
     if task_id not in task_output:
         return jsonify({"error": "Unknown task_id"}), 404
@@ -153,14 +155,14 @@ def stream(task_id):
 
 @cli.command()
 def server(host: str = "0.0.0.0", port: int = 5000):
-    """Startet den Octo-Server."""
+    """Start the Octo-Server."""
     typer.echo(ascii_art)
     typer.echo(f"🚀 Starting Octo Server on http://{host}:{port}")
     app.run(host=host, port=port)
 
 @cli.command()
 def token_add(token: str):
-    """Fügt ein Token hinzu."""
+    """Add a Token."""
     config = load_config()
     if token not in config["valid_tokens"]:
         config["valid_tokens"].append(token)
@@ -171,7 +173,7 @@ def token_add(token: str):
 
 @cli.command()
 def token_list():
-    """Listet alle Tokens."""
+    """Lists all Token."""
     config = load_config()
     tokens = config.get("valid_tokens", [])
     if tokens:
@@ -183,7 +185,7 @@ def token_list():
 
 @cli.command()
 def token_remove(token: str):
-    """Entfernt ein Token."""
+    """Delete a Token."""
     config = load_config()
     if token in config.get("valid_tokens", []):
         config["valid_tokens"].remove(token)

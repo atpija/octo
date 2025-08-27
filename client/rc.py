@@ -17,9 +17,9 @@ CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
 # ---------------------------
 
 def load_config():
-    """Lädt gespeicherte Konfiguration (Token + Server)."""
+    """Loads saved Config (Token + Server)."""
     if not os.path.exists(CONFIG_PATH):
-        raise typer.BadParameter("Keine Config gefunden. Bitte zuerst `octo login` ausführen.")
+        raise typer.BadParameter("No Config found. Please use `octo login`.")
     with open(CONFIG_PATH) as f:
         return json.load(f)
 
@@ -52,20 +52,18 @@ def zip_project(entry_path: str) -> tuple[str, str]:
 @app.command()
 def login(token: str = typer.Option(..., help="Auth-Token vom Server"),
           server: str = typer.Option(..., help="Server-URL, z.B. http://127.0.0.1:5000")):
-    """Speichert Token + Server-Adresse."""
+    """saves Config (Token + Server)."""
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     with open(CONFIG_PATH, "w") as f:
         json.dump({"token": token, "server": server}, f)
     typer.echo("✅ Configuration saved.")
 
 @app.command()
-def run(path: str = typer.Argument(..., help="Pfad zum Start-Script (Entry-File)")):
+def run(path: str = typer.Argument(..., help="specify your main file (main.py/main.c etc.)")):
     """
-    Reicht einen Task beim Server ein:
-    - ZIP mit komplettem Projektordner
-    - Entry-File-Relative Pfad
-    - Token per Form-Feld
-    Streamt anschließend Live-Output.
+    Sets up a Task on your Server:
+    - ZIP with your whole project
+    Stream Live-Output.
     """
     cfg = load_config()
     archive, entry_rel = zip_project(path)
