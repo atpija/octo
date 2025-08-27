@@ -92,6 +92,7 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
                     break
                 elif msg == "[TASK_FAILED]":
                     print("❌ Task failed")
+                    sys.exit(1)
                     break
                 else:
                     print(msg)
@@ -99,6 +100,7 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
     else:
         typer.echo("❌ Error while submitting:")
         print(res.text)
+        sys.exit(1)
 
 if __name__ == "__main__":
     app()
