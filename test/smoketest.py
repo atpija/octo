@@ -117,3 +117,18 @@ def test_long_running(tmp_path):
     code, output = run_cmd(["octo", "run", str(f)], timeout=10)
     assert code == 0
     assert "done" in output
+
+def test_many_files(tmp_path):
+    """Client: Projekt mit sehr vielen Files"""
+    # 500 kleine Dateien anlegen
+    for i in range(50):
+        f = tmp_path / f"file_{i}.py"
+        f.write_text(f"print('Hello from {i}')")
+
+    # Main File, das ein paar andere Files importiert
+    main = tmp_path / "main.py"
+    main.write_text("import file_2; print('main running')")
+
+    code, output = run_cmd(["octo", "run", str(main)], timeout=60)
+    assert code == 0
+    assert "main running" in output
