@@ -1,3 +1,5 @@
+# runner.py
+
 import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json
 
 cli = typer.Typer(help="Octo Runner CLI")
@@ -39,9 +41,9 @@ def poll_task(server, token):
     try:
         res = requests.post(f"{server}/get_task", json={"token": token})
         if res.ok:
-            task = res.json()
-            if task.get("id") and task.get("archive"):
-                # Archive-URL zusammensetzen
+            data = res.json()
+            task = data.get("task")  # <-- Fix: Server verschachtelt Antwort in "task"
+            if task and task.get("id") and task.get("archive"):
                 archive_url = task["archive"]
                 if archive_url.startswith("/"):
                     archive_url = server.rstrip("/") + archive_url
@@ -69,9 +71,12 @@ def send_output(server, task_id, line):
 # ---------------------------
 
 @cli.command()
-def runner(token: str = typer.Option(..., help="Authentication token"),
-           server: str = typer.Option("http://127.0.0.1:5000", help="Server URL")):
+def runner(token: str = typer.Option(..., help="Authentication token")):
     typer.echo(ascii_art)
+
+    cfg = load_config()
+    server = cfg.get("server", "http://127.0.0.1:5000")
+
     save_token(token, server)
     typer.echo(f"🚀 Runner connected to {server} with token {token}")
 
@@ -81,8 +86,9 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
             task_id = task["id"]
             archive_file = task["archive_file"]
             entry_file = task.get("entry", "main.py")
+            docker_image = task.get("docker_image", "python:3.11-slim")
 
-            print(f"⚡ Running Task {task_id}")
+            print(f"⚡ Running Task {task_id} using image {docker_image}")
 
             try:
                 # ZIP entpacken
@@ -112,7 +118,7 @@ def runner(token: str = typer.Option(..., help="Authentication token"),
                     "-v", f"{workdir}:/workspace",
                     "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
-                    "python:3.11-slim",
+                    docker_image,
                     "python", "-u", f"/workspace/{entry_file}"
                 ]
                 print("🐳 Running docker command:", docker_cmd)
