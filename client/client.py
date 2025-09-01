@@ -1,33 +1,39 @@
 # client.py
 # -----------------------------------------------------------------------------
 # Octo Client:
-# - `octo login --token ... --server ...` speichert Token + Server
-# - `octo run path/to/script.py` packt den gesamten Projektordner in ein ZIP,
-#   und sendet ZIP + Entry-File-Name an den Server.
-# - Streamt Live-Output zurück (Realtime Logs).
+# - login: Token + Server speichern
+# - run: packt Projekt (Ordner des Entry-Files) in ZIP und schickt es an den Server
+# - config --docker: setzt Docker Image
+# - config --show: zeigt aktuelle Config
 # -----------------------------------------------------------------------------
 
 import typer, requests, os, json, zipfile, tempfile, sys
+from pathlib import Path
 
-app = typer.Typer()
+app = typer.Typer(help="Octo Client CLI")
+
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
+os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 # ---------------------------
 # Hilfsfunktionen
 # ---------------------------
 
 def load_config():
-    """Loads saved Config (Token + Server)."""
+    """Loads saved Config (Token + Server + Docker-Image)."""
     if not os.path.exists(CONFIG_PATH):
-        raise typer.BadParameter("No Config found. Please use `octo login`.")
+        raise typer.BadParameter("No Config found. Please use `octo login` first.")
     with open(CONFIG_PATH) as f:
         return json.load(f)
 
-def zip_project(entry_path: str) -> tuple[str, str]:
+def save_config(cfg):
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+def zip_project(entry_path: str) -> tuple[str, str, str]:
     """
     Packt den gesamten Ordner des Entry-Files in ein temporäres ZIP.
-    Gibt (zip_path, entry_file_relpfad) zurück.
-    - entry_file_relpfad ist der relative Pfad zum Projektwurzel, z.B. 'sub/test.py'
+    Gibt (zip_path, entry_file_relpfad, project_dir) zurück.
     """
     entry_abs = os.path.abspath(entry_path)
     if not os.path.isfile(entry_abs):
@@ -40,10 +46,12 @@ def zip_project(entry_path: str) -> tuple[str, str]:
     with zipfile.ZipFile(tmp.name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(project_dir):
             for file in files:
+                if file.startswith("."):  # versteckte Dateien ignorieren
+                    continue
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, project_dir)
                 zf.write(file_path, rel_path)
-    return tmp.name, entry_rel
+    return tmp.name, entry_rel, project_dir
 
 # ---------------------------
 # Typer CLI Commands
@@ -53,9 +61,8 @@ def zip_project(entry_path: str) -> tuple[str, str]:
 def login(token: str = typer.Option(..., help="Auth-Token vom Server"),
           server: str = typer.Option(..., help="Server-URL, z.B. http://127.0.0.1:5000")):
     """saves Config (Token + Server)."""
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, "w") as f:
-        json.dump({"token": token, "server": server}, f)
+    cfg = {"token": token, "server": server, "docker_image": "python:3.11"}
+    save_config(cfg)
     typer.echo("✅ Configuration saved.")
 
 @app.command()
@@ -63,15 +70,20 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
     """
     Sets up a Task on your Server:
     - ZIP with your whole project
-    Stream Live-Output.
+    - passes entry + docker_image
+    - streams Live-Output
     """
     cfg = load_config()
-    archive, entry_rel = zip_project(path)
+    archive, entry_rel, project_dir = zip_project(path)
 
     with open(archive, "rb") as f:
         res = requests.post(
             f"{cfg['server']}/submit",
-            data={"token": cfg["token"], "entry": entry_rel},
+            data={
+                "token": cfg["token"],
+                "entry": entry_rel,
+                "docker_image": cfg.get("docker_image", "python:3.11"),
+            },
             files={"archive": f},
             timeout=60
         )
@@ -101,6 +113,21 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
         typer.echo("❌ Error while submitting:")
         print(res.text)
         sys.exit(1)
+
+@app.command()
+def config(docker: str = typer.Option(None, "--docker", help="Set Docker Image"),
+           show: bool = typer.Option(False, "--show", help="Show current config")):
+    """Docker-Image setzen oder Config anzeigen."""
+    cfg = load_config()
+    if docker:
+        cfg["docker_image"] = docker
+        save_config(cfg)
+        typer.echo(f"🐳 Docker-Image gesetzt: {docker}")
+    elif show:
+        typer.echo("⚙️ Aktuelle Config:")
+        typer.echo(json.dumps(cfg, indent=2))
+    else:
+        typer.echo("ℹ️ Optionen: --docker IMAGE | --show")
 
 if __name__ == "__main__":
     app()
