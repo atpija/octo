@@ -132,3 +132,39 @@ def test_many_files(tmp_path):
     code, output = run_cmd(["octo", "run", str(main)], timeout=60)
     assert code == 0
     assert "main running" in output
+
+def test_config_show_and_set():
+    """Client: docker image setzen und anzeigen"""
+    code, output = run_cmd(["octo", "config", "--docker", "python:3.12"])
+    assert code == 0
+    assert "python:3.12" in output or "✅" in output
+
+    code, output = run_cmd(["octo", "config", "--show"])
+    assert code == 0
+    assert "python:3.12" in output
+
+
+def test_run_with_custom_docker(tmp_path):
+    """Client: Script wird im gesetzten Docker-Image ausgeführt"""
+    # Config auf spezielles Image setzen
+    run_cmd(["octo", "config", "--docker", "python:3.12"])
+
+    f = tmp_path / "docker_test.py"
+    f.write_text("import sys; print('python-version:', sys.version)")
+    code, output = run_cmd(["octo", "run", str(f)], timeout=30)
+    assert code == 0
+    assert "python-version:" in output
+    # wir checken nur grob auf "3.12", weil die genaue Minor-Version variieren kann
+    assert "3.12" in output
+
+
+def test_run_with_default_docker(tmp_path):
+    """Client: Script läuft ohne explizite Config im Default-Image"""
+    # Config zurücksetzen auf Default
+    run_cmd(["octo", "config", "--docker", "python:3.11-slim"])
+
+    f = tmp_path / "default_docker.py"
+    f.write_text("print('default docker works')")
+    code, output = run_cmd(["octo", "run", str(f)], timeout=30)
+    assert code == 0
+    assert "default docker works" in output
