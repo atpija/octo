@@ -48,7 +48,8 @@ def save_config(cfg):
 def submit():
     token = request.form.get("token")
     entry_file = request.form.get("entry")
-    docker_image = request.form.get("docker_image")  # <-- NEU
+    docker_image = request.form.get("docker_image")
+    auto_install = request.form.get("auto_install") == "true"
     cfg = load_config()
     if token not in cfg["valid_tokens"]:
         return jsonify({"error": "Unauthorized"}), 403
@@ -63,7 +64,7 @@ def submit():
 
     task_output[task_id] = {"lines": [], "done": False}
 
-    task = {"id": task_id, "entry": entry_file, "docker_image": docker_image}  # <-- NEU
+    task = {"id": task_id, "entry": entry_file, "docker_image": docker_image, "auto_install": auto_install}
     task_queue.put(task)
 
     return jsonify({"task_id": task_id})
@@ -83,6 +84,7 @@ def get_task():
                 "id": task["id"],
                 "entry": task["entry"],
                 "docker_image": task.get("docker_image"),
+                "auto_install": task.get("auto_install", False),
                 "archive": f"/download/{task['id']}"
             }
         })

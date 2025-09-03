@@ -83,10 +83,12 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
                 "token": cfg["token"],
                 "entry": entry_rel,
                 "docker_image": cfg.get("docker_image", "python:3.11"),
+                "auto_install": json.dumps(cfg.get("auto_install", False)),
             },
             files={"archive": f},
             timeout=60
-        )
+    )
+
 
     if res.ok:
         task_id = res.json()["task_id"]
@@ -115,19 +117,30 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
         sys.exit(1)
 
 @app.command()
-def config(docker: str = typer.Option(None, "--docker", help="Set Docker Image"),
-           show: bool = typer.Option(False, "--show", help="Show current config")):
-    """Docker-Image setzen oder Config anzeigen."""
+def config(
+    docker: str = typer.Option(None, "--docker", help="Set Docker Image"),
+    install: bool = typer.Option(None, "--install/--noinstall", help="Auto-install requirements.txt"),
+    show: bool = typer.Option(False, "--show", help="Show current config")
+):
+    """set Docker-Image, toggle Auto-Install or show Config."""
     cfg = load_config()
     if docker:
         cfg["docker_image"] = docker
         save_config(cfg)
-        typer.echo(f"🐳 Docker-Image gesetzt: {docker}")
-    elif show:
-        typer.echo("⚙️ Aktuelle Config:")
+        typer.echo(f"🐳 Docker-Image set: {docker}")
+    if install is not None:
+        cfg["auto_install"] = install
+        save_config(cfg)
+        if install:
+            typer.echo("📦 Auto-Install of requirements.txt active")
+        else:
+            typer.echo("🚫 Auto-Install deactive")
+    if show:
+        typer.echo("⚙️ Active Config:")
         typer.echo(json.dumps(cfg, indent=2))
-    else:
-        typer.echo("ℹ️ Optionen: --docker IMAGE | --show")
+    if not docker and install is None and not show:
+        typer.echo("ℹ️ Options: --docker IMAGE | --install/--noinstall | --show")
+
 
 if __name__ == "__main__":
     app()

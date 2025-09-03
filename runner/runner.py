@@ -42,7 +42,7 @@ def poll_task(server, token):
         res = requests.post(f"{server}/get_task", json={"token": token})
         if res.ok:
             data = res.json()
-            task = data.get("task")  # <-- Fix: Server verschachtelt Antwort in "task"
+            task = data.get("task")
             if task and task.get("id") and task.get("archive"):
                 archive_url = task["archive"]
                 if archive_url.startswith("/"):
@@ -87,6 +87,7 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
             archive_file = task["archive_file"]
             entry_file = task.get("entry", "main.py")
             docker_image = task.get("docker_image", "python:3.11-slim")
+            auto_install = task.get("auto_install", False)
 
             print(f"⚡ Running Task {task_id} using image {docker_image}")
 
@@ -112,15 +113,27 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     send_output(server, task_id, "[TASK_FAILED]")
                     continue
 
+                requirements_path = os.path.join(workdir, "requirements.txt")
+
                 # Docker ausführen
                 docker_cmd = [
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
                     "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
+                    "-e", "PYTHONUSERBASE=/workspace/.local",
                     docker_image,
-                    "python", "-u", f"/workspace/{entry_file}"
                 ]
+
+                if auto_install and os.path.exists(requirements_path):
+                    print("📦 Auto-install enabled. Installing requirements.txt before running script...")
+                    docker_cmd += [
+                        "sh", "-c",
+                        f"pip install -r /workspace/requirements.txt && python -u /workspace/{entry_file}"
+                    ]
+                else:
+                    docker_cmd += ["python", "-u", f"/workspace/{entry_file}"]
+
                 print("🐳 Running docker command:", docker_cmd)
 
                 proc = subprocess.Popen(
