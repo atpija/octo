@@ -12,8 +12,8 @@ rm -rf "$BUILD_DIR" dist build
 
 mkdir -p "$INSTALL_DIR" "$DEB_DIR"
 
-# Konvertiere rc.py zu ausführbarer Datei "octo"
-pyinstaller --onefile rc.py --name octo
+# Konvertiere client.py zu ausführbarer Datei "octo"
+pyinstaller --onefile client.py --name octo
 mv dist/octo "$INSTALL_DIR/octo"
 
 # DEBIAN/control Datei
