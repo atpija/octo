@@ -119,6 +119,7 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                 docker_cmd = [
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
+                    "-w", "/workspace",
                     "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
                     "-e", "PYTHONUSERBASE=/workspace/.local",
