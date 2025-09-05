@@ -1,5 +1,5 @@
 # server.py
-# (deine Version, nur um docker_image erweitert)
+# (um Ressourcenoptionen erweitert)
 # -----------------------------------------------------------------------------
 
 from flask import Flask, request, jsonify, Response, stream_with_context, send_file
@@ -50,6 +50,12 @@ def submit():
     entry_file = request.form.get("entry")
     docker_image = request.form.get("docker_image")
     auto_install = request.form.get("auto_install") == "true"
+
+    gpu = request.form.get("gpu")
+    ram = request.form.get("ram")
+    cpu = request.form.get("cpu")
+    shm_size = request.form.get("shm_size")
+
     cfg = load_config()
     if token not in cfg["valid_tokens"]:
         return jsonify({"error": "Unauthorized"}), 403
@@ -64,7 +70,16 @@ def submit():
 
     task_output[task_id] = {"lines": [], "done": False}
 
-    task = {"id": task_id, "entry": entry_file, "docker_image": docker_image, "auto_install": auto_install}
+    task = {
+        "id": task_id,
+        "entry": entry_file,
+        "docker_image": docker_image,
+        "auto_install": auto_install,
+        "gpu": gpu,
+        "ram": ram,
+        "cpu": cpu,
+        "shm_size": shm_size,
+    }
     task_queue.put(task)
 
     return jsonify({"task_id": task_id})
@@ -85,6 +100,10 @@ def get_task():
                 "entry": task["entry"],
                 "docker_image": task.get("docker_image"),
                 "auto_install": task.get("auto_install", False),
+                "gpu": task.get("gpu"),
+                "ram": task.get("ram"),
+                "cpu": task.get("cpu"),
+                "shm_size": task.get("shm_size"),
                 "archive": f"/download/{task['id']}"
             }
         })
@@ -128,7 +147,7 @@ def stream(task_id):
     return Response(generate(), mimetype="text/plain")
 
 # ---------------------------
-# Typer CLI (unverändert)
+# Typer CLI
 # ---------------------------
 
 @cli.command()
