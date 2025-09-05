@@ -5,6 +5,7 @@
 # - run: packt Projekt (Ordner des Entry-Files) in ZIP und schickt es an den Server
 # - config --docker: setzt Docker Image
 # - config --show: zeigt aktuelle Config
+# - config --gpu/--ram/--cpu/--shm-size: setzt Ressourcenoptionen
 # -----------------------------------------------------------------------------
 
 import typer, requests, os, json, zipfile, tempfile, sys
@@ -84,11 +85,14 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
                 "entry": entry_rel,
                 "docker_image": cfg.get("docker_image", "python:3.11"),
                 "auto_install": json.dumps(cfg.get("auto_install", False)),
+                "gpu": cfg.get("gpu"),
+                "ram": cfg.get("ram"),
+                "cpu": cfg.get("cpu"),
+                "shm_size": cfg.get("shm_size"),
             },
             files={"archive": f},
             timeout=60
-    )
-
+        )
 
     if res.ok:
         task_id = res.json()["task_id"]
@@ -120,26 +124,50 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
 def config(
     docker: str = typer.Option(None, "--docker", help="Set Docker Image"),
     install: bool = typer.Option(None, "--install/--noinstall", help="Auto-install requirements.txt"),
+    gpu: str = typer.Option(None, "--gpu", help="Set GPU option, e.g. 'all' or 'device=0'"),
+    ram: str = typer.Option(None, "--ram", help="Set RAM limit, e.g. '8g'"),
+    cpu: str = typer.Option(None, "--cpu", help="Set CPU limit, e.g. '4'"),
+    shm_size: str = typer.Option(None, "--shm-size", help="Set shared memory size, e.g. '2g'"),
     show: bool = typer.Option(False, "--show", help="Show current config")
 ):
-    """set Docker-Image, toggle Auto-Install or show Config."""
+    """set Docker-Image, resources, toggle Auto-Install or show Config."""
     cfg = load_config()
+    changed = False
+
     if docker:
         cfg["docker_image"] = docker
-        save_config(cfg)
         typer.echo(f"🐳 Docker-Image set: {docker}")
+        changed = True
     if install is not None:
         cfg["auto_install"] = install
+        typer.echo("📦 Auto-Install active" if install else "🚫 Auto-Install deactive")
+        changed = True
+    if gpu is not None:
+        cfg["gpu"] = gpu
+        typer.echo(f"🎮 GPU set: {gpu}")
+        changed = True
+    if ram is not None:
+        cfg["ram"] = ram
+        typer.echo(f"🧠 RAM set: {ram}")
+        changed = True
+    if cpu is not None:
+        cfg["cpu"] = cpu
+        typer.echo(f"⚙️ CPU set: {cpu}")
+        changed = True
+    if shm_size is not None:
+        cfg["shm_size"] = shm_size
+        typer.echo(f"📂 Shared Memory set: {shm_size}")
+        changed = True
+
+    if changed:
         save_config(cfg)
-        if install:
-            typer.echo("📦 Auto-Install of requirements.txt active")
-        else:
-            typer.echo("🚫 Auto-Install deactive")
+
     if show:
         typer.echo("⚙️ Active Config:")
         typer.echo(json.dumps(cfg, indent=2))
-    if not docker and install is None and not show:
-        typer.echo("ℹ️ Options: --docker IMAGE | --install/--noinstall | --show")
+
+    if not (docker or install is not None or gpu or ram or cpu or shm_size or show):
+        typer.echo("ℹ️ Options: --docker IMAGE | --install/--noinstall | --gpu OPT | --ram OPT | --cpu OPT | --shm-size OPT | --show")
 
 
 if __name__ == "__main__":

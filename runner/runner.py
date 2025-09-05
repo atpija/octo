@@ -89,6 +89,11 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
             docker_image = task.get("docker_image", "python:3.11-slim")
             auto_install = task.get("auto_install", False)
 
+            gpu = task.get("gpu")
+            ram = task.get("ram")
+            cpu = task.get("cpu")
+            shm_size = task.get("shm_size")
+
             print(f"⚡ Running Task {task_id} using image {docker_image}")
 
             try:
@@ -123,8 +128,18 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
                     "-e", "PYTHONUSERBASE=/workspace/.local",
-                    docker_image,
                 ]
+
+                if cpu:
+                    docker_cmd += ["--cpus", str(cpu)]
+                if ram:
+                    docker_cmd += ["--memory", str(ram)]
+                if shm_size:
+                    docker_cmd += ["--shm-size", str(shm_size)]
+                if gpu:
+                    docker_cmd += ["--gpus", str(gpu)]
+
+                docker_cmd.append(docker_image)
 
                 if auto_install and os.path.exists(requirements_path):
                     print("📦 Auto-install enabled. Installing requirements.txt before running script...")
@@ -135,41 +150,30 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                 else:
                     docker_cmd += ["python", "-u", f"/workspace/{entry_file}"]
 
-                print("🐳 Running docker command:", docker_cmd)
+                print("🐳 Docker Command:", " ".join(docker_cmd))
 
                 proc = subprocess.Popen(
-                    docker_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1
+                    docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
                 )
-
-                for line in iter(proc.stdout.readline, ''):
-                    line = line.strip()
-                    if line:
-                        send_output(server, task_id, line)
-
-                proc.stdout.close()
+                for line in proc.stdout:
+                    send_output(server, task_id, line.rstrip())
+                    print(line, end="")
                 proc.wait()
 
                 if proc.returncode == 0:
                     send_output(server, task_id, "[TASK_DONE]")
-                    print("✅ Task done")
                 else:
-                    send_output(server, task_id, f"[RUNNER ERROR] Process exited with {proc.returncode}")
                     send_output(server, task_id, "[TASK_FAILED]")
-                    print(f"❌ Process exited with {proc.returncode}")
 
             except Exception as e:
                 send_output(server, task_id, f"[RUNNER ERROR] {e}")
                 send_output(server, task_id, "[TASK_FAILED]")
-                print(f"❌ Exception: {e}")
             finally:
-                if os.path.exists(workdir):
-                    shutil.rmtree(workdir)
                 if os.path.exists(archive_file):
                     os.remove(archive_file)
+                if os.path.exists(workdir):
+                    shutil.rmtree(workdir)
+
         else:
             time.sleep(2)
 
