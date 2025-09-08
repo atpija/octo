@@ -157,7 +157,7 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                 )
                 for line in proc.stdout:
                     send_output(server, task_id, line.rstrip())
-                    print(line, end="")
+                    #print(line, end="")
                 proc.wait()
 
                 if proc.returncode == 0:
