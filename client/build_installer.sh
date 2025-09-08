@@ -31,4 +31,3 @@ EOF
 # Paket bauen
 dpkg-deb --build "$BUILD_DIR" "${APP_NAME}_${VERSION}_amd64.deb"
 echo "✅ Client Installer gebaut: ${APP_NAME}_${VERSION}_amd64.deb"
-
