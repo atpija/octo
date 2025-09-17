@@ -2,7 +2,7 @@
 
 !define APP_NAME "octo-client"
 !define APP_VERSION "0.1"
-!define APP_EXE_NAME "octo.exe"
+!define APP_EXE_NAME "octo-client.exe"
 
 !include "MUI2.nsh"
 !include "WinMessages.nsh"
