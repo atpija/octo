@@ -125,6 +125,7 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
                     "-w", "/workspace",
+                    "-e", "PYTHONUTF8=1",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
                     "-e", "PYTHONUSERBASE=/workspace/.local",
                 ]
@@ -161,7 +162,7 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                 print("🐳 Docker Command:", " ".join(docker_cmd))
 
                 proc = subprocess.Popen(
-                    docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                    docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8"
                 )
                 for line in proc.stdout:
                     send_output(server, task_id, line.rstrip())
