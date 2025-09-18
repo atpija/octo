@@ -1,6 +1,6 @@
 # runner.py
 
-import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json
+import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform
 
 cli = typer.Typer(help="Octo Runner CLI")
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
@@ -125,10 +125,18 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     "docker", "run", "--rm",
                     "-v", f"{workdir}:/workspace",
                     "-w", "/workspace",
-                    "--user", f"{os.getuid()}:{os.getgid()}",
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
                     "-e", "PYTHONUSERBASE=/workspace/.local",
                 ]
+
+                # Plattformabhängige User-Einstellung
+                if platform.system() == "Windows":
+                    print("os windows")
+                else:
+                    uid = os.getuid()
+                    gid = os.getgid()
+                    #print(f"🐧 Running on Linux: setting container user to UID:{uid} GID:{gid}")
+                    docker_cmd += ["--user", f"{uid}:{gid}"]
 
                 if cpu:
                     docker_cmd += ["--cpus", str(cpu)]
