@@ -1,4 +1,4 @@
-# runner.py
+# runner.py (angepasst, .venv entfernt, korrektes Zurückzippen + OUTPUT_DONE)
 
 import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform
 
@@ -66,6 +66,28 @@ def send_output(server, task_id, line):
     except Exception as e:
         print(f"❌ Error while sending output: {e}")
 
+def zip_new_files(workdir, orig_files):
+    exclude_dirs = {"venv", ".local", "__pycache__"}
+    exclude_ext = {".pyc", ".pyo"}
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    with zipfile.ZipFile(tmp.name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(workdir):
+            # bestimmte Verzeichnisse ignorieren
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+            for f in files:
+                if any(f.endswith(ext) for ext in exclude_ext):
+                    continue  # Skip unnötige Files
+
+                abs_path = os.path.join(root, f)
+                rel_path = os.path.relpath(abs_path, workdir)
+
+                # nur neue/geänderte Files packen
+                if rel_path not in orig_files:
+                    zf.write(abs_path, rel_path)
+    return tmp.name
+
 # ---------------------------
 # Runner Loop
 # ---------------------------
@@ -103,22 +125,22 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     zf.extractall(workdir)
 
                 print("📦 Archive extracted to:", workdir)
-                print("📂 Files inside workdir:")
-                for root, dirs, files in os.walk(workdir):
-                    for f in files:
-                        rel_path = os.path.relpath(os.path.join(root, f), workdir)
-                        print("   ", rel_path)
-
                 main_path = os.path.join(workdir, entry_file)
-                print("👉 Looking for entry file:", main_path)
 
                 if not os.path.exists(main_path):
-                    msg = f"[RUNNER ERROR] Startfile {entry_file} not found in {workdir}"
-                    send_output(server, task_id, msg)
+                    send_output(server, task_id, f"[RUNNER ERROR] Startfile {entry_file} not found")
                     send_output(server, task_id, "[TASK_FAILED]")
                     continue
 
                 requirements_path = os.path.join(workdir, "requirements.txt")
+
+                # --- Originaldateien merken ---
+                orig_files = []
+                for root, dirs, files in os.walk(workdir):
+                    dirs[:] = [d for d in dirs if d.lower() != "venv"]
+                    for f in files:
+                        rel_path = os.path.relpath(os.path.join(root, f), workdir)
+                        orig_files.append(rel_path)
 
                 # Docker ausführen
                 docker_cmd = [
@@ -129,29 +151,18 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     "-e", "PYTHONDONTWRITEBYTECODE=1",
                     "-e", "PYTHONUSERBASE=/workspace/.local",
                 ]
-
-                # Plattformabhängige User-Einstellung
-                if platform.system() == "Windows":
-                    print("os windows")
-                else:
+                if platform.system() != "Windows":
                     uid = os.getuid()
                     gid = os.getgid()
-                    #print(f"🐧 Running on Linux: setting container user to UID:{uid} GID:{gid}")
                     docker_cmd += ["--user", f"{uid}:{gid}"]
-
-                if cpu:
-                    docker_cmd += ["--cpus", str(cpu)]
-                if ram:
-                    docker_cmd += ["--memory", str(ram)]
-                if shm_size:
-                    docker_cmd += ["--shm-size", str(shm_size)]
-                if gpu:
-                    docker_cmd += ["--gpus", str(gpu)]
+                if cpu: docker_cmd += ["--cpus", str(cpu)]
+                if ram: docker_cmd += ["--memory", str(ram)]
+                if shm_size: docker_cmd += ["--shm-size", str(shm_size)]
+                if gpu: docker_cmd += ["--gpus", str(gpu)]
 
                 docker_cmd.append(docker_image)
 
                 if auto_install and os.path.exists(requirements_path):
-                    print("📦 Auto-install enabled. Installing requirements.txt before running script...")
                     docker_cmd += [
                         "sh", "-c",
                         f"pip install -r /workspace/requirements.txt && python -u /workspace/{entry_file}"
@@ -159,15 +170,23 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                 else:
                     docker_cmd += ["python", "-u", f"/workspace/{entry_file}"]
 
-                print("🐳 Docker Command:", " ".join(docker_cmd))
-
                 proc = subprocess.Popen(
                     docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8"
                 )
                 for line in proc.stdout:
                     send_output(server, task_id, line.rstrip())
-                    #print(line, end="")
                 proc.wait()
+
+                # --- Neue/geänderte Dateien zippen und an Server schicken ---
+                output_zip = zip_new_files(workdir, orig_files)
+                with open(output_zip, "rb") as f:
+                    try:
+                        requests.post(f"{server}/submit_output_zip/{task_id}", files={"archive": f})
+                        # --- Flag an Client senden ---
+                        send_output(server, task_id, "[OUTPUT_DONE]")
+                    except Exception as e:
+                        print(f"❌ Error sending output zip: {e}")
+                os.remove(output_zip)
 
                 if proc.returncode == 0:
                     send_output(server, task_id, "[TASK_DONE]")
@@ -182,7 +201,6 @@ def runner(token: str = typer.Option(..., help="Authentication token")):
                     os.remove(archive_file)
                 if os.path.exists(workdir):
                     shutil.rmtree(workdir)
-
         else:
             time.sleep(2)
 

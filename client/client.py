@@ -34,6 +34,7 @@ def save_config(cfg):
 def zip_project(entry_path: str) -> tuple[str, str, str]:
     """
     Packt den gesamten Ordner des Entry-Files in ein temporäres ZIP.
+    Schließt Ordner 'venv/', '__pycache__', 'site-packages', '*.dist-info' und versteckte Dateien aus.
     Gibt (zip_path, entry_file_relpfad, project_dir) zurück.
     """
     entry_abs = os.path.abspath(entry_path)
@@ -45,9 +46,22 @@ def zip_project(entry_path: str) -> tuple[str, str, str]:
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
     with zipfile.ZipFile(tmp.name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for root, _, files in os.walk(project_dir):
+        for root, dirs, files in os.walk(project_dir):
+            # Verzeichnisse filtern
+            dirs[:] = [
+                d for d in dirs
+                if not (
+                    d.lower() == "venv"
+                    or d == "__pycache__"
+                    or d == "site-packages"
+                    or d.endswith(".dist-info")
+                    or d.startswith(".")
+                )
+            ]
             for file in files:
-                if file.startswith("."):  # versteckte Dateien ignorieren
+                if file.startswith("."):
+                    continue
+                if file.endswith(".pyc"):
                     continue
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, project_dir)
@@ -70,13 +84,15 @@ def login(token: str = typer.Option(..., help="Auth-Token vom Server"),
 def run(path: str = typer.Argument(..., help="specify your main file (main.py/main.c etc.)")):
     """
     Sets up a Task on your Server:
-    - ZIP with your whole project
+    - ZIP with your whole project (excluding venv/)
     - passes entry + docker_image
     - streams Live-Output
+    - downloads new/changed files from Runner into workspace
     """
     cfg = load_config()
     archive, entry_rel, project_dir = zip_project(path)
 
+    # --- Task auf Server senden ---
     with open(archive, "rb") as f:
         res = requests.post(
             f"{cfg['server']}/submit",
@@ -94,31 +110,67 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
             timeout=60
         )
 
-    if res.ok:
-        task_id = res.json()["task_id"]
-        typer.echo(f"🚀 Task submitted: {task_id}\n📡 Waiting for Live-Output...\n")
+    os.remove(archive)
 
-        # Live-Output streamen
-        with requests.get(f"{cfg['server']}/stream/{task_id}", stream=True) as r:
-            for line in r.iter_lines():
-                if not line:
-                    continue
-                msg = line.decode().strip()
-
-                if msg == "[TASK_DONE]":
-                    print("✅ Task finished successfully")
-                    break
-                elif msg == "[TASK_FAILED]":
-                    print("❌ Task failed")
-                    sys.exit(1)
-                    break
-                else:
-                    print(msg)
-                sys.stdout.flush()
-    else:
+    if not res.ok:
         typer.echo("❌ Error while submitting:")
         print(res.text)
         sys.exit(1)
+
+    task_id = res.json()["task_id"]
+    typer.echo(f"🚀 Task submitted: {task_id}\n📡 Waiting for Live-Output...\n")
+
+    # --- Live-Output streamen ---
+    task_done = False
+    output_done = False
+
+    with requests.get(f"{cfg['server']}/stream/{task_id}", stream=True) as r:
+        for line in r.iter_lines():
+            if not line:
+                continue
+            msg = line.decode().strip()
+
+            if msg == "[TASK_FAILED]":
+                print("❌ Task failed")
+                sys.exit(1)
+
+            elif msg == "[OUTPUT_DONE]":
+                print("📦 Output ZIP uploaded by Runner, downloading...")
+                try:
+                    out_res = requests.get(f"{cfg['server']}/download_output/{task_id}", stream=True)
+                    if out_res.status_code == 200:
+                        tmp_zip = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+                        for chunk in out_res.iter_content(chunk_size=8192):
+                            tmp_zip.write(chunk)
+                        tmp_zip.close()
+
+                        # Entpacken ins Projektverzeichnis, Unterordner erstellen falls nötig
+                        with zipfile.ZipFile(tmp_zip.name, "r") as zf:
+                            print("📦 Output ZIP contains:")
+                            for f in zf.namelist():
+                                print(" -", f)
+                                target_path = os.path.join(project_dir, f)
+                                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                                with open(target_path, "wb") as out_f:
+                                    out_f.write(zf.read(f))
+                        os.remove(tmp_zip.name)
+                        print("✅ New/changed files downloaded from Runner.")
+                        output_done = True
+                    else:
+                        print("ℹ️ No output ZIP found from Runner.")
+                except Exception as e:
+                    print(f"❌ Error downloading output ZIP: {e}")
+
+            elif msg == "[TASK_DONE]":
+                print("✅ Task finished successfully")
+                task_done = True
+
+            else:
+                print(msg)
+            sys.stdout.flush()
+
+            if task_done and output_done:
+                break
 
 @app.command()
 def config(
@@ -168,7 +220,6 @@ def config(
 
     if not (docker or install is not None or gpu or ram or cpu or shm_size or show):
         typer.echo("ℹ️ Options: --docker IMAGE | --install/--noinstall | --gpu OPT | --ram OPT | --cpu OPT | --shm-size OPT | --show")
-
 
 if __name__ == "__main__":
     app()
