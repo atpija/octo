@@ -146,6 +146,25 @@ def stream(task_id):
             time.sleep(0.3)
     return Response(generate(), mimetype="text/plain")
 
+@app.route("/submit_output_zip/<task_id>", methods=["POST"])
+def submit_output_zip(task_id):
+    file = request.files.get("archive")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+    task_folder = os.path.join(TASK_DIR, task_id)
+    os.makedirs(task_folder, exist_ok=True)
+    zip_path = os.path.join(task_folder, "output.zip")
+    file.save(zip_path)
+    return "", 204
+
+@app.route("/download_output/<task_id>")
+def download_output(task_id):
+    zip_path = os.path.join(TASK_DIR, task_id, "output.zip")
+    if not os.path.exists(zip_path):
+        return jsonify({"error": "Output not found"}), 404
+    return send_file(zip_path, as_attachment=True)
+
+
 # ---------------------------
 # Typer CLI
 # ---------------------------
