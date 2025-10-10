@@ -1,13 +1,10 @@
 # runner.py (angepasst, .venv entfernt, korrektes Zurückzippen + OUTPUT_DONE)
 
-import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform, sys, io
+import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform
 
 cli = typer.Typer(help="Octo Runner CLI")
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
-# Sicherstellen, dass stdout/stderr UTF-8 ist (für Windows)
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='ignore')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='ignore')
 
 ascii_art = r"""
                 __       
