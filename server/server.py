@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 
 from flask import Flask, request, jsonify, Response, stream_with_context, send_file
-import uuid, queue, time, json, os, typer
+import uuid, queue, time, json, os, typer, sys, io
 
 app = Flask(__name__)
 task_queue = queue.Queue()
@@ -17,6 +17,10 @@ CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 cli = typer.Typer(help="Octo Server CLI")
+
+# Sicherstellen, dass stdout/stderr UTF-8 ist (für Windows)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='ignore')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='ignore')
 
 ascii_art = r"""
                 __       
