@@ -73,6 +73,7 @@ def submit():
 
     task = {
         "id": task_id,
+        "token": token,
         "entry": entry_file,
         "docker_image": docker_image,
         "auto_install": auto_install,
