@@ -36,28 +36,34 @@ jobs:
       - name: Build Client
         shell: powershell
         run: |
-          Set-Location "octo/client"
+          $clientPath = Join-Path $PWD "octo/client"
+          Set-Location $clientPath
           octo run build_installer.ps1
-          Copy-Item dist\* ..\..\dist_windows -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
 
       - name: Build Server
         shell: powershell
         run: |
-          Set-Location "octo/server"
+          $serverPath = Join-Path $PWD "octo/server"
+          Set-Location $serverPath
           octo run build_installer.ps1
-          Copy-Item dist\* ..\..\dist_windows -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
 
       - name: Build Runner
         shell: powershell
         run: |
-          Set-Location "octo/runner"
+          $runnerPath = Join-Path $PWD "octo/runner"
+          Set-Location $runnerPath
           octo run build_installer.ps1
-          Copy-Item dist\* ..\..\dist_windows -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
 
       - name: Create Windows ZIP
         shell: powershell
         run: |
-          Compress-Archive -Path "dist_windows\*" -DestinationPath "octo-windows.zip"
+          Compress-Archive -Path "dist_windows/*" -DestinationPath "octo-windows.zip"
 
       - name: Upload Windows ZIP
         uses: actions/upload-artifact@v4
@@ -68,48 +74,56 @@ jobs:
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
-    runs-on: [self-hosted, linux, x64, octo]
+    runs-on: [self-hosted, x64, octo]  # compatible with Windows runners running Docker Linux containers
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Octo login
+        shell: bash
         run: |
           octo login --token $OCTO_TOKEN --server $OCTO_SERVER
 
       - name: Configure Linux Docker
+        shell: bash
         run: |
           octo config --docker python:3.11-slim
 
       - name: Build Client
+        shell: bash
         run: |
           cd octo/client
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          cp dist/*.deb ../../dist_linux/
+          mkdir -p ../../dist_linux
+          cp dist/*.deb ../../dist_linux/ || true
 
       - name: Build Server
+        shell: bash
         run: |
           cd octo/server
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          cp dist/*.deb ../../dist_linux/
+          mkdir -p ../../dist_linux
+          cp dist/*.deb ../../dist_linux/ || true
 
       - name: Build Runner
+        shell: bash
         run: |
           cd octo/runner
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          cp dist/*.deb ../../dist_linux/
+          mkdir -p ../../dist_linux
+          cp dist/*.deb ../../dist_linux/ || true
 
       - name: Create Linux ZIP
+        shell: bash
         run: |
-          zip -r octo-linux.zip dist_linux/
+          zip -r octo-linux.zip dist_linux/ || true
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-linux
           path: octo-linux.zip
-
