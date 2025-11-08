@@ -74,7 +74,7 @@ jobs:
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
-    runs-on: [self-hosted, x64, octo]  # compatible with Windows runners running Docker Linux containers
+    runs-on: [self-hosted, windows, x64, octo]
 
     steps:
       - name: Checkout repository
