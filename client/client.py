@@ -8,13 +8,18 @@
 # - config --gpu/--ram/--cpu/--shm-size: setzt Ressourcenoptionen
 # -----------------------------------------------------------------------------
 
-import typer, requests, os, json, zipfile, tempfile, sys
+import typer, requests, os, json, zipfile, tempfile, sys, io
 from pathlib import Path
 
 app = typer.Typer(help="Octo Client CLI")
 
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+
+# Sicherstellen, dass stdout/stderr UTF-8 ist (für Windows)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='ignore')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='ignore')
+
 
 # ---------------------------
 # Hilfsfunktionen

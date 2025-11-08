@@ -18,6 +18,7 @@ os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 cli = typer.Typer(help="Octo Server CLI")
 
+
 ascii_art = r"""
                 __       
   ____   _____ / /_ ____ 
@@ -72,6 +73,7 @@ def submit():
 
     task = {
         "id": task_id,
+        "token": token,
         "entry": entry_file,
         "docker_image": docker_image,
         "auto_install": auto_install,

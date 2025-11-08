@@ -5,6 +5,7 @@ import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, p
 cli = typer.Typer(help="Octo Runner CLI")
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
+
 ascii_art = r"""
                 __       
   ____   _____ / /_ ____ 
