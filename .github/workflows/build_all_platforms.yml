@@ -36,7 +36,7 @@ jobs:
               Write-Host "Building $comp for Windows"
               Write-Host "=============================="
 
-              $path = Join-Path $PWD "octo\$comp"
+              $path = Join-Path $PWD $comp
               if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
               Set-Location $path
 
@@ -53,9 +53,9 @@ jobs:
         shell: powershell
         run: |
           $expectedFiles = @(
-            "octo\client\octo-client-0.1-setup.exe",
-            "octo\runner\octo-runner-0.1-setup.exe",
-            "octo\server\octo-server-0.1-setup.exe"
+            "client\octo-client-0.1-setup.exe",
+            "runner\octo-runner-0.1-setup.exe",
+            "server\octo-server-0.1-setup.exe"
           )
 
           foreach ($file in $expectedFiles) {
@@ -105,7 +105,7 @@ jobs:
             Write-Host "Building $comp for Linux"
             Write-Host "=============================="
 
-            $path = Join-Path $PWD "octo\$comp"
+            $path = Join-Path $PWD $comp
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
@@ -122,9 +122,9 @@ jobs:
         shell: powershell
         run: |
           $expectedFiles = @(
-            "octo\client\octo-client_0.1_amd64.deb",
-            "octo\runner\octo-runner_0.1_amd64.deb",
-            "octo\server\octo-server_0.1_amd64.deb"
+            "client\octo-client_0.1_amd64.deb",
+            "runner\octo-runner_0.1_amd64.deb",
+            "server\octo-server_0.1_amd64.deb"
           )
 
           foreach ($file in $expectedFiles) {
