@@ -25,20 +25,16 @@ jobs:
       - name: Debug - Show directory structure
         shell: powershell
         run: |
-          chcp 65001 > $null
-          Write-Host "== Directory structure =="
+          Write-Host "Current directory: $(Get-Location)"
           Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
 
       - name: Create dist directory
         shell: powershell
-        run: |
-          chcp 65001 > $null
-          New-Item -ItemType Directory -Force -Path "dist_windows" | Out-Null
+        run: New-Item -ItemType Directory -Force -Path "dist_windows" | Out-Null
 
-      - name: Build Components (Windows)
+      - name: Build all Windows components
         shell: powershell
         run: |
-          chcp 65001 > $null
           $components = @("client","server","runner")
 
           foreach ($comp in $components) {
@@ -46,18 +42,21 @@ jobs:
             Write-Host "Building $comp for Windows"
             Write-Host "=============================="
 
-            $path = if (Test-Path "octo\$comp") { "octo\$comp" } elseif (Test-Path $comp) { $comp } else {
+            if (Test-Path "octo\$comp") {
+              Set-Location "octo\$comp"
+            } elseif (Test-Path $comp) {
+              Set-Location $comp
+            } else {
               Write-Error "$comp folder not found!"
               exit 1
             }
-
-            Set-Location $path
 
             if (-not (Test-Path "build_installer.ps1")) {
               Write-Error "build_installer.ps1 not found in $(Get-Location)!"
               exit 1
             }
 
+            Write-Host "Building $comp in $(Get-Location)"
             & ".\build_installer.ps1"
 
             if ($LASTEXITCODE -ne 0) {
@@ -71,24 +70,15 @@ jobs:
             if (Test-Path "dist") {
               Copy-Item -Recurse "dist\*" $destPath -Force
             } else {
-              Write-Warning "dist folder not found for $comp – checking current directory for artifacts..."
-              $files = Get-ChildItem -Include *.exe,*.msi -Recurse -ErrorAction SilentlyContinue
-              if ($files.Count -eq 0) {
-                Write-Error "No output files found for $comp!"
-                exit 1
-              }
-              foreach ($f in $files) { Copy-Item $f.FullName $destPath -Force }
+              Write-Warning "No dist folder found for $comp!"
             }
 
-            Write-Host "Copied outputs to $destPath"
             Set-Location ..\..
           }
 
       - name: Create Windows ZIP
         shell: powershell
-        run: |
-          chcp 65001 > $null
-          Compress-Archive -Path "dist_windows\*" -DestinationPath "octo-windows.zip" -Force
+        run: Compress-Archive -Path "dist_windows\*" -DestinationPath "octo-windows.zip" -Force
 
       - name: Upload Windows ZIP
         uses: actions/upload-artifact@v4
@@ -100,7 +90,7 @@ jobs:
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
-    runs-on: [self-hosted, windows, x64, octo]
+    runs-on: [self-hosted, windows, x64, octo]  # Same runner, using Docker for Linux
 
     steps:
       - name: Checkout repository
@@ -109,27 +99,26 @@ jobs:
       - name: Debug - Show directory structure
         shell: powershell
         run: |
-          chcp 65001 > $null
-          Write-Host "== Directory structure =="
+          Write-Host "Current directory: $(Get-Location)"
           Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
 
-      - name: Octo login & configure
+      - name: Octo login
         shell: powershell
         run: |
           chcp 65001 > $null
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11-slim
+
+      - name: Configure Linux Docker
+        shell: powershell
+        run: octo config --docker python:3.11-slim
 
       - name: Create dist directory
         shell: powershell
-        run: |
-          chcp 65001 > $null
-          New-Item -ItemType Directory -Force -Path "dist_linux" | Out-Null
+        run: New-Item -ItemType Directory -Force -Path "dist_linux" | Out-Null
 
-      - name: Build Components (Linux)
+      - name: Build all Linux components
         shell: powershell
         run: |
-          chcp 65001 > $null
           $components = @("client","server","runner")
 
           foreach ($comp in $components) {
@@ -137,18 +126,21 @@ jobs:
             Write-Host "Building $comp for Linux"
             Write-Host "=============================="
 
-            $path = if (Test-Path "octo\$comp") { "octo\$comp" } elseif (Test-Path $comp) { $comp } else {
+            if (Test-Path "octo\$comp") {
+              Set-Location "octo\$comp"
+            } elseif (Test-Path $comp) {
+              Set-Location $comp
+            } else {
               Write-Error "$comp folder not found!"
               exit 1
             }
-
-            Set-Location $path
 
             if (-not (Test-Path "build_installer.sh")) {
               Write-Error "build_installer.sh not found in $(Get-Location)!"
               exit 1
             }
 
+            Write-Host "Building $comp (Linux) in $(Get-Location)"
             octo run build_installer.sh
 
             if ($LASTEXITCODE -ne 0) {
@@ -161,28 +153,23 @@ jobs:
 
             if (Test-Path "dist") {
               Copy-Item -Recurse "dist\*" $destPath -Force
-            } elseif (Test-Path "..\..\_work\octo\octo\dist_linux\$comp") {
-              Write-Host "Found build output under _work/octo/dist_linux/$comp"
-              Copy-Item -Recurse "..\..\_work\octo\octo\dist_linux\$comp\*" $destPath -Force
             } else {
-              Write-Warning "No dist/ folder found – searching for .deb/.rpm/.tar.gz..."
-              $files = Get-ChildItem -Include *.deb,*.rpm,*.tar.gz -Recurse -ErrorAction SilentlyContinue
-              if ($files.Count -eq 0) {
-                Write-Error "No Linux installer found for $comp!"
+              $installers = Get-ChildItem -File -Include *.deb,*.rpm,*.tar.gz -Recurse -ErrorAction SilentlyContinue
+              if ($installers.Count -eq 0) {
+                Write-Error "No installers found after $comp build!"
                 exit 1
               }
-              foreach ($f in $files) { Copy-Item $f.FullName $destPath -Force }
+              foreach ($file in $installers) {
+                Copy-Item $file.FullName $destPath -Force
+              }
             }
 
-            Write-Host "Copied outputs to $destPath"
             Set-Location ..\..
           }
 
       - name: Create Linux ZIP
         shell: powershell
-        run: |
-          chcp 65001 > $null
-          Compress-Archive -Path "dist_linux\*" -DestinationPath "octo-linux.zip" -Force
+        run: Compress-Archive -Path "dist_linux\*" -DestinationPath "octo-linux.zip" -Force
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
