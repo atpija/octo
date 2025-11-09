@@ -62,7 +62,9 @@ jobs:
           
           foreach ($comp in $components) {
               Write-Host "Looking for installer for component: $comp"
-              $installer = Join-Path $PWD $comp "octo-$comp-0.1-setup.exe"
+              # Join paths in two steps
+              $compPath = Join-Path $PWD $comp
+              $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
               Write-Host "Checking path: $installer"
               
               if (Test-Path $installer) {
@@ -146,7 +148,9 @@ jobs:
           
           foreach ($comp in $components) {
               Write-Host "Looking for .deb package for component: $comp"
-              $installer = Join-Path $PWD $comp "octo-$comp`_0.1_amd64.deb"
+              # Join paths in two steps
+              $compPath = Join-Path $PWD $comp
+              $installer = Join-Path $compPath "octo-$comp`_0.1_amd64.deb"
               Write-Host "Checking path: $installer"
               
               if (Test-Path $installer) {
