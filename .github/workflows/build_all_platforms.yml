@@ -111,7 +111,7 @@ jobs:
 
       - name: Configure Linux Docker
         shell: powershell
-        run: octo config --docker python:3.11-slim --install
+        run: octo config --docker python:3.11
 
       - name: Build all Linux components
         shell: powershell
