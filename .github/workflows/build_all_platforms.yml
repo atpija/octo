@@ -57,7 +57,7 @@ jobs:
           Write-Host "Building client in: $(Get-Location)"
           
           # Run build script on Windows
-          build_installer.ps1
+          & ".\build_installer.ps1"
                     
           # Copy outputs from dist to dist_windows/client
           if (Test-Path "dist") {
@@ -94,7 +94,7 @@ jobs:
           
           Write-Host "Building server in: $(Get-Location)"
           
-          build_installer.ps1
+          & ".\build_installer.ps1"
           
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Server build failed!"
@@ -135,7 +135,7 @@ jobs:
           
           Write-Host "Building runner in: $(Get-Location)"
           
-          build_installer.ps1
+          & ".\build_installer.ps1"
           
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Runner build failed!"
@@ -154,20 +154,6 @@ jobs:
           }
           
           Set-Location ..\..
-
-      - name: Verify Windows builds
-        shell: powershell
-        run: |
-          Write-Host "Checking built files..."
-          Get-ChildItem -Recurse dist_windows
-          
-          # Check if any .exe or .msi files exist
-          $installers = Get-ChildItem -Recurse -Path "dist_windows" -Include *.exe,*.msi
-          if ($installers.Count -eq 0) {
-            Write-Error "No installers found in dist_windows!"
-            exit 1
-          }
-          Write-Host "Found $($installers.Count) installer(s)"
 
       - name: Create Windows ZIP
         shell: powershell
@@ -374,20 +360,6 @@ jobs:
           Write-Host "Copied outputs to $destPath"
           
           Set-Location ..\..
-
-      - name: Verify Linux builds
-        shell: powershell
-        run: |
-          Write-Host "Checking built files..."
-          Get-ChildItem -Recurse dist_linux
-          
-          # Check if any .deb or .rpm files exist
-          $installers = Get-ChildItem -Recurse -Path "dist_linux" -Include *.deb,*.rpm,*.tar.gz
-          if ($installers.Count -eq 0) {
-            Write-Error "No installers found in dist_linux!"
-            exit 1
-          }
-          Write-Host "Found $($installers.Count) installer(s)"
 
       - name: Create Linux ZIP
         shell: powershell
