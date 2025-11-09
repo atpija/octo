@@ -36,29 +36,29 @@ jobs:
       - name: Build Client
         shell: powershell
         run: |
-          $clientPath = Join-Path $PWD "octo/client"
-          Set-Location $clientPath
+          Set-Location "client"
           octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
+          Set-Location ..
 
       - name: Build Server
         shell: powershell
         run: |
-          $serverPath = Join-Path $PWD "octo/server"
-          Set-Location $serverPath
+          Set-Location "server"
           octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
+          Set-Location ..
 
       - name: Build Runner
         shell: powershell
         run: |
-          $runnerPath = Join-Path $PWD "octo/runner"
-          Set-Location $runnerPath
+          Set-Location "runner"
           octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
+          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
+          Set-Location ..
 
       - name: Create Windows ZIP
         shell: powershell
@@ -74,7 +74,7 @@ jobs:
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
-    runs-on: [self-hosted, windows, x64, octo]
+    runs-on: [self-hosted, windows, x64, octo]  # allows Windows or Linux runners
 
     steps:
       - name: Checkout repository
@@ -93,29 +93,32 @@ jobs:
       - name: Build Client
         shell: bash
         run: |
-          cd octo/client
+          cd client
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+          mkdir -p ../dist_linux
+          cp dist/*.deb ../dist_linux/ || true
+          cd ..
 
       - name: Build Server
         shell: bash
         run: |
-          cd octo/server
+          cd server
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+          mkdir -p ../dist_linux
+          cp dist/*.deb ../dist_linux/ || true
+          cd ..
 
       - name: Build Runner
         shell: bash
         run: |
-          cd octo/runner
+          cd runner
           chmod +x build_installer.sh
           octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+          mkdir -p ../dist_linux
+          cp dist/*.deb ../dist_linux/ || true
+          cd ..
 
       - name: Create Linux ZIP
         shell: bash
