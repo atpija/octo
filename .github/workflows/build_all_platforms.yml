@@ -53,15 +53,29 @@ jobs:
       - name: Package Windows installers
         shell: powershell
         run: |
+          Write-Host "Current directory: $PWD"
+          Write-Host "Listing all files in workspace:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          
+          $components = @("client","server","runner")
           $installerFiles = @()
+          
           foreach ($comp in $components) {
-              $installer = Join-Path $comp "octo-$comp-0.1-setup.exe"
-              if (-not (Test-Path $installer)) { 
+              Write-Host "Looking for installer for component: $comp"
+              $installer = Join-Path $PWD $comp "octo-$comp-0.1-setup.exe"
+              Write-Host "Checking path: $installer"
+              
+              if (Test-Path $installer) {
+                  Write-Host "Found installer at: $installer"
+                  $installerFiles += $installer
+              } else {
                   Write-Error "Expected installer not found: $installer"
-                  exit 1 
+                  exit 1
               }
-              $installerFiles += $installer
           }
+
+          Write-Host "Found installer files:"
+          $installerFiles | ForEach-Object { Write-Host "- $_" }
 
           Compress-Archive -Path $installerFiles -DestinationPath "octo-windows.zip" -Force
           Write-Host "Windows ZIP created with exact installer files."
@@ -123,15 +137,29 @@ jobs:
       - name: Package Linux installers
         shell: powershell
         run: |
+          Write-Host "Current directory: $PWD"
+          Write-Host "Listing all files in workspace:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          
+          $components = @("client","server","runner")
           $installerFiles = @()
+          
           foreach ($comp in $components) {
-              $installer = Join-Path $comp "octo-$comp`_0.1_amd64.deb"
-              if (-not (Test-Path $installer)) { 
-                  Write-Error "Expected installer not found: $installer"
-                  exit 1 
+              Write-Host "Looking for .deb package for component: $comp"
+              $installer = Join-Path $PWD $comp "octo-$comp`_0.1_amd64.deb"
+              Write-Host "Checking path: $installer"
+              
+              if (Test-Path $installer) {
+                  Write-Host "Found .deb package at: $installer"
+                  $installerFiles += $installer
+              } else {
+                  Write-Error "Expected .deb package not found: $installer"
+                  exit 1
               }
-              $installerFiles += $installer
           }
+
+          Write-Host "Found .deb packages:"
+          $installerFiles | ForEach-Object { Write-Host "- $_" }
 
           Compress-Archive -Path $installerFiles -DestinationPath "octo-linux.zip" -Force
           Write-Host "Linux ZIP created with exact .deb files."
