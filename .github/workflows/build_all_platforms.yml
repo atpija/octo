@@ -22,11 +22,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Remove old Windows ZIP
+        shell: powershell
+        run: |
+          if (Test-Path "octo-windows.zip") { Remove-Item "octo-windows.zip" -Force }
+
       - name: Build all Windows components
         shell: powershell
         run: |
           $components = @("client","server","runner")
-
           foreach ($comp in $components) {
             Write-Host "=============================="
             Write-Host "Building $comp for Windows"
@@ -48,13 +52,18 @@ jobs:
       - name: Package Windows installers
         shell: powershell
         run: |
-          $installerFiles = Get-ChildItem -Recurse -Include "setup.exe" | Where-Object { $_.FullName -match "octo\\(client|server|runner)" }
-          if ($installerFiles.Count -eq 0) { Write-Error "No Windows installers found!"; exit 1 }
+          $expectedFiles = @(
+            "octo\client\octo-client-0.1-setup.exe",
+            "octo\runner\octo-runner-0.1-setup.exe",
+            "octo\server\octo-server-0.1-setup.exe"
+          )
 
-          Write-Host "Found Windows installers:"
-          $installerFiles | ForEach-Object { Write-Host $_.FullName }
+          foreach ($file in $expectedFiles) {
+            if (-not (Test-Path $file)) { Write-Error "Expected file $file not found!"; exit 1 }
+          }
 
-          Compress-Archive -Path $installerFiles.FullName -DestinationPath "octo-windows.zip" -Force
+          Compress-Archive -Path $expectedFiles -DestinationPath "octo-windows.zip" -Force
+          Write-Host "Windows ZIP created with exact installer files."
 
       - name: Upload Windows ZIP
         uses: actions/upload-artifact@v4
@@ -72,6 +81,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Remove old Linux ZIP
+        shell: powershell
+        run: |
+          if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
+
       - name: Octo login
         shell: powershell
         run: |
@@ -86,7 +100,6 @@ jobs:
         shell: powershell
         run: |
           $components = @("client","server","runner")
-
           foreach ($comp in $components) {
             Write-Host "=============================="
             Write-Host "Building $comp for Linux"
@@ -108,13 +121,18 @@ jobs:
       - name: Package Linux installers
         shell: powershell
         run: |
-          $debFiles = Get-ChildItem -Recurse -Include "*.deb" | Where-Object { $_.FullName -match "octo\\(client|server|runner)" }
-          if ($debFiles.Count -eq 0) { Write-Error "No Linux .deb files found!"; exit 1 }
+          $expectedFiles = @(
+            "octo\client\octo-client_0.1_amd64.deb",
+            "octo\runner\octo-runner_0.1_amd64.deb",
+            "octo\server\octo-server_0.1_amd64.deb"
+          )
 
-          Write-Host "Found Linux installers:"
-          $debFiles | ForEach-Object { Write-Host $_.FullName }
+          foreach ($file in $expectedFiles) {
+            if (-not (Test-Path $file)) { Write-Error "Expected file $file not found!"; exit 1 }
+          }
 
-          Compress-Archive -Path $debFiles.FullName -DestinationPath "octo-linux.zip" -Force
+          Compress-Archive -Path $expectedFiles -DestinationPath "octo-linux.zip" -Force
+          Write-Host "Linux ZIP created with exact .deb files."
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
