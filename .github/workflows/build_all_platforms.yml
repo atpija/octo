@@ -36,7 +36,7 @@ jobs:
             Write-Host "Building $comp for Windows"
             Write-Host "=============================="
 
-            $path = "octo\$comp"
+            $path = "octo\octo\$comp"
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
@@ -105,7 +105,7 @@ jobs:
             Write-Host "Building $comp for Linux"
             Write-Host "=============================="
 
-            $path = "octo\$comp"
+            $path = "octo\octo\$comp"
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
