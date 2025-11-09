@@ -1,4 +1,4 @@
-; Octo Runner Installer (English, same structure)
+; Octo Runner Installer (English, same structure as client)
 !define APP_NAME "octo-runner"
 !define APP_VERSION "0.1"
 !define APP_EXE_NAME "octo-runner.exe"
@@ -50,10 +50,10 @@ Section "${APP_NAME} (Main program)" SEC_MAIN
 
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
-    ; Environment variables specific for runner
-    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_HOME" "$INSTDIR"
-    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_CONFIG" "$INSTDIR\config"
-    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_DATA" "$APPDATA\${APP_NAME}"
+    ; Environment variables specific for server
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_HOME" "$INSTDIR"
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_CONFIG" "$INSTDIR\config"
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_DATA" "$APPDATA\${APP_NAME}"
 
     Call AddToPath
     SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
@@ -76,15 +76,15 @@ Section "Uninstall"
 
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
-    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_HOME"
-    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_CONFIG"
-    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_RUNNER_DATA"
+    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_HOME"
+    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_CONFIG"
+    DeleteRegValue HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "OCTO_SERVER_DATA"
 
     Call un.RemoveFromPath
     SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 SectionEnd
 
-; PATH functions and helpers same as above (copy from client/server)
+; PATH functions and helpers are identical to client
 Function AddToPath
     Push $0
     Push $1
