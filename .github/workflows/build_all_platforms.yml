@@ -76,7 +76,7 @@ jobs:
               foreach ($f in $files) { Copy-Item $f.FullName $destPath -Force }
             }
 
-            Write-Host "✅ Copied outputs to $destPath"
+            Write-Host "Copied outputs to $destPath"
             Set-Location ..\..
           }
 
@@ -163,7 +163,7 @@ jobs:
               foreach ($f in $files) { Copy-Item $f.FullName $destPath -Force }
             }
 
-            Write-Host "✅ Copied outputs to $destPath"
+            Write-Host "Copied outputs to $destPath"
             Set-Location ..\..
           }
 
