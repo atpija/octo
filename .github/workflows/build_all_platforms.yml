@@ -29,17 +29,6 @@ jobs:
           Write-Host "Directory structure:"
           Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
 
-      - name: Octo login
-        shell: powershell
-        run: |
-          chcp 65001 > $null
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-
-      - name: Configure Windows Docker
-        shell: powershell
-        run: |
-          octo config --docker mcr.microsoft.com/windows/servercore:ltsc2022
-
       - name: Create dist directory
         shell: powershell
         run: |
@@ -67,14 +56,9 @@ jobs:
           
           Write-Host "Building client in: $(Get-Location)"
           
-          # Run build script in Windows container
-          octo run build_installer.ps1
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Client build failed!"
-            exit 1
-          }
-          
+          # Run build script on Windows
+          build_installer.ps1
+                    
           # Copy outputs from dist to dist_windows/client
           if (Test-Path "dist") {
             $destPath = "..\..\dist_windows\client"
@@ -110,7 +94,7 @@ jobs:
           
           Write-Host "Building server in: $(Get-Location)"
           
-          octo run build_installer.ps1
+          build_installer.ps1
           
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Server build failed!"
@@ -151,7 +135,7 @@ jobs:
           
           Write-Host "Building runner in: $(Get-Location)"
           
-          octo run build_installer.ps1
+          build_installer.ps1
           
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Runner build failed!"
