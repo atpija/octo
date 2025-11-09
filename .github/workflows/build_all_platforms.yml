@@ -32,21 +32,21 @@ jobs:
         run: |
           $components = @("client","server","runner")
           foreach ($comp in $components) {
-            Write-Host "=============================="
-            Write-Host "Building $comp for Windows"
-            Write-Host "=============================="
+              Write-Host "=============================="
+              Write-Host "Building $comp for Windows"
+              Write-Host "=============================="
 
-            $path = "octo\octo\$comp"
-            if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
-            Set-Location $path
+              $path = Join-Path $PWD "octo\$comp"
+              if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
+              Set-Location $path
 
-            if (-not (Test-Path "build_installer.ps1")) { Write-Error "build_installer.ps1 not found"; exit 1 }
+              if (-not (Test-Path "build_installer.ps1")) { Write-Error "build_installer.ps1 not found"; exit 1 }
 
-            Write-Host "Running build_installer.ps1 for $comp..."
-            & ".\build_installer.ps1"
-            if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
+              Write-Host "Running build_installer.ps1 for $comp..."
+              & ".\build_installer.ps1"
+              if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
-            Set-Location ../..
+              Set-Location $PWD
           }
 
       - name: Package Windows installers
@@ -105,7 +105,7 @@ jobs:
             Write-Host "Building $comp for Linux"
             Write-Host "=============================="
 
-            $path = "octo\octo\$comp"
+            $path = Join-Path $PWD "octo\$comp"
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
@@ -115,7 +115,7 @@ jobs:
             octo run build_installer.sh
             if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
-            Set-Location ../..
+            Set-Location $PWD
           }
 
       - name: Package Linux installers
