@@ -22,54 +22,72 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Octo login
+      - name: Remove old Windows ZIP
         shell: powershell
         run: |
-          chcp 65001 > $null
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          if (Test-Path "octo-windows.zip") { Remove-Item "octo-windows.zip" -Force }
 
-      - name: Configure Windows Docker
+      - name: Build all Windows components
         shell: powershell
         run: |
-          octo config --docker mcr.microsoft.com/windows/servercore:ltsc2022
+          $components = @("client","server","runner")
+          $rootPath = $PWD
+          foreach ($comp in $components) {
+              Write-Host "=============================="
+              Write-Host "Building $comp for Windows"
+              Write-Host "=============================="
 
-      - name: Build Client
-        shell: powershell
-        run: |
-          $clientPath = Join-Path $PWD "octo/client"
-          Set-Location $clientPath
-          octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+              $path = Join-Path $rootPath $comp
+              if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
+              Set-Location $path
 
-      - name: Build Server
-        shell: powershell
-        run: |
-          $serverPath = Join-Path $PWD "octo/server"
-          Set-Location $serverPath
-          octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+              if (-not (Test-Path "build_installer.ps1")) { Write-Error "build_installer.ps1 not found"; exit 1 }
 
-      - name: Build Runner
-        shell: powershell
-        run: |
-          $runnerPath = Join-Path $PWD "octo/runner"
-          Set-Location $runnerPath
-          octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../../dist_windows" -Force
+              Write-Host "Running build_installer.ps1 for $comp..."
+              & ".\build_installer.ps1"
+              if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
-      - name: Create Windows ZIP
+              Set-Location $rootPath
+          }
+
+      - name: Package Windows installers
         shell: powershell
         run: |
-          Compress-Archive -Path "dist_windows/*" -DestinationPath "octo-windows.zip"
+          Write-Host "Current directory: $PWD"
+          Write-Host "Listing all files in workspace:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          
+          $components = @("client","server","runner")
+          $installerFiles = @()
+          
+          foreach ($comp in $components) {
+              Write-Host "Looking for installer for component: $comp"
+              # Join paths in two steps
+              $compPath = Join-Path $PWD $comp
+              $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
+              Write-Host "Checking path: $installer"
+              
+              if (Test-Path $installer) {
+                  Write-Host "Found installer at: $installer"
+                  $installerFiles += $installer
+              } else {
+                  Write-Error "Expected installer not found: $installer"
+                  exit 1
+              }
+          }
+
+          Write-Host "Found installer files:"
+          $installerFiles | ForEach-Object { Write-Host "- $_" }
+
+          Compress-Archive -Path $installerFiles -DestinationPath "octo-windows.zip" -Force
+          Write-Host "Windows ZIP created with exact installer files."
 
       - name: Upload Windows ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-windows
           path: octo-windows.zip
+          retention-days: 30
 
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
@@ -80,50 +98,79 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Octo login
-        shell: bash
+      - name: Remove old Linux ZIP
+        shell: powershell
         run: |
-          octo login --token $OCTO_TOKEN --server $OCTO_SERVER
+          if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
+
+      - name: Octo login
+        shell: powershell
+        run: |
+          chcp 65001 > $null
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
 
       - name: Configure Linux Docker
-        shell: bash
-        run: |
-          octo config --docker python:3.11-slim
+        shell: powershell
+        run: octo config --docker python:3.11-slim
 
-      - name: Build Client
-        shell: bash
+      - name: Build all Linux components
+        shell: powershell
         run: |
-          cd octo/client
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+          $components = @("client","server","runner")
+          $rootPath = $PWD
+          foreach ($comp in $components) {
+            Write-Host "=============================="
+            Write-Host "Building $comp for Linux"
+            Write-Host "=============================="
 
-      - name: Build Server
-        shell: bash
-        run: |
-          cd octo/server
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+            $path = Join-Path $rootPath $comp
+            if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
+            Set-Location $path
 
-      - name: Build Runner
-        shell: bash
-        run: |
-          cd octo/runner
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../../dist_linux
-          cp dist/*.deb ../../dist_linux/ || true
+            if (-not (Test-Path "build_installer.sh")) { Write-Error "build_installer.sh not found"; exit 1 }
 
-      - name: Create Linux ZIP
-        shell: bash
+            Write-Host "Running build_installer.sh for $comp..."
+            octo run build_installer.sh
+            if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
+
+            Set-Location $rootPath
+          }
+
+      - name: Package Linux installers
+        shell: powershell
         run: |
-          zip -r octo-linux.zip dist_linux/ || true
+          Write-Host "Current directory: $PWD"
+          Write-Host "Listing all files in workspace:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          
+          $components = @("client","server","runner")
+          $installerFiles = @()
+          
+          foreach ($comp in $components) {
+              Write-Host "Looking for .deb package for component: $comp"
+              # Join paths in two steps
+              $compPath = Join-Path $PWD $comp
+              $installer = Join-Path $compPath "octo-$comp`_0.1_amd64.deb"
+              Write-Host "Checking path: $installer"
+              
+              if (Test-Path $installer) {
+                  Write-Host "Found .deb package at: $installer"
+                  $installerFiles += $installer
+              } else {
+                  Write-Error "Expected .deb package not found: $installer"
+                  exit 1
+              }
+          }
+
+          Write-Host "Found .deb packages:"
+          $installerFiles | ForEach-Object { Write-Host "- $_" }
+
+          Compress-Archive -Path $installerFiles -DestinationPath "octo-linux.zip" -Force
+          Write-Host "Linux ZIP created with exact .deb files."
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-linux
           path: octo-linux.zip
+          retention-days: 30
