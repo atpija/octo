@@ -259,17 +259,29 @@ jobs:
             exit 1
           }
           
-          # Copy outputs
+          # Look for outputs in dist/ folder first, then current directory
+          $destPath = "..\..\dist_linux\client"
+          New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+          
           if (Test-Path "dist") {
-            $destPath = "..\..\dist_linux\client"
-            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Write-Host "Found dist/ folder, copying contents..."
             Copy-Item -Recurse "dist\*" $destPath -Force
-            Write-Host "Copied outputs to $destPath"
           } else {
-            Write-Error "No dist folder found after client build!"
-            Get-ChildItem
-            exit 1
+            Write-Host "No dist/ folder, looking for installers in current directory..."
+            $installers = Get-ChildItem -File -Include *.deb,*.rpm,*.tar.gz -Recurse -Depth 1
+            if ($installers.Count -gt 0) {
+              Write-Host "Found $($installers.Count) installer(s), copying..."
+              foreach ($file in $installers) {
+                Copy-Item $file.FullName $destPath -Force
+              }
+            } else {
+              Write-Error "No installers found after client build!"
+              Get-ChildItem
+              exit 1
+            }
           }
+          
+          Write-Host "Copied outputs to $destPath"
           
           Set-Location ..\..
 
@@ -301,16 +313,28 @@ jobs:
             exit 1
           }
           
+          $destPath = "..\..\dist_linux\server"
+          New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+          
           if (Test-Path "dist") {
-            $destPath = "..\..\dist_linux\server"
-            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Write-Host "Found dist/ folder, copying contents..."
             Copy-Item -Recurse "dist\*" $destPath -Force
-            Write-Host "Copied outputs to $destPath"
           } else {
-            Write-Error "No dist folder found after server build!"
-            Get-ChildItem
-            exit 1
+            Write-Host "No dist/ folder, looking for installers in current directory..."
+            $installers = Get-ChildItem -File -Include *.deb,*.rpm,*.tar.gz -Recurse -Depth 1
+            if ($installers.Count -gt 0) {
+              Write-Host "Found $($installers.Count) installer(s), copying..."
+              foreach ($file in $installers) {
+                Copy-Item $file.FullName $destPath -Force
+              }
+            } else {
+              Write-Error "No installers found after server build!"
+              Get-ChildItem
+              exit 1
+            }
           }
+          
+          Write-Host "Copied outputs to $destPath"
           
           Set-Location ..\..
 
@@ -342,16 +366,28 @@ jobs:
             exit 1
           }
           
+          $destPath = "..\..\dist_linux\runner"
+          New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+          
           if (Test-Path "dist") {
-            $destPath = "..\..\dist_linux\runner"
-            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Write-Host "Found dist/ folder, copying contents..."
             Copy-Item -Recurse "dist\*" $destPath -Force
-            Write-Host "Copied outputs to $destPath"
           } else {
-            Write-Error "No dist folder found after runner build!"
-            Get-ChildItem
-            exit 1
+            Write-Host "No dist/ folder, looking for installers in current directory..."
+            $installers = Get-ChildItem -File -Include *.deb,*.rpm,*.tar.gz -Recurse -Depth 1
+            if ($installers.Count -gt 0) {
+              Write-Host "Found $($installers.Count) installer(s), copying..."
+              foreach ($file in $installers) {
+                Copy-Item $file.FullName $destPath -Force
+              }
+            } else {
+              Write-Error "No installers found after runner build!"
+              Get-ChildItem
+              exit 1
+            }
           }
+          
+          Write-Host "Copied outputs to $destPath"
           
           Set-Location ..\..
 
