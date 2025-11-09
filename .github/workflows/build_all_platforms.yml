@@ -111,7 +111,7 @@ jobs:
 
       - name: Configure Linux Docker
         shell: powershell
-        run: octo config --docker python:3.11-slim
+        run: octo config --docker python:3.11
 
       - name: Build all Linux components
         shell: powershell
@@ -127,10 +127,11 @@ jobs:
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
-            if (-not (Test-Path "build_installer.sh")) { Write-Error "build_installer.sh not found"; exit 1 }
+            if (-not (Test-Path "start_build.sh")) { Write-Error "start_build.sh not found"; exit 1 }
 
-            Write-Host "Running build_installer.sh for $comp..."
-            octo run build_installer.sh
+            Write-Host "Running start_build.sh for $comp..."
+            # Run chmod and execute in a single command through octo
+            octo run ./start_build.sh
             if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
             Set-Location $rootPath
