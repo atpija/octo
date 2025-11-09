@@ -22,6 +22,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug - Show directory structure
+        shell: powershell
+        run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Directory structure:"
+          Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
+
       - name: Octo login
         shell: powershell
         run: |
@@ -33,100 +40,343 @@ jobs:
         run: |
           octo config --docker mcr.microsoft.com/windows/servercore:ltsc2022
 
-      - name: Build Client
+      - name: Create dist directory
         shell: powershell
         run: |
-          Set-Location "client"
-          octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
-          Set-Location ..
+          New-Item -ItemType Directory -Force -Path "dist_windows" | Out-Null
 
-      - name: Build Server
+      - name: Build Client (Windows)
         shell: powershell
         run: |
-          Set-Location "server"
+          # Navigate to octo/client
+          if (Test-Path "octo\client") {
+            Set-Location "octo\client"
+          } elseif (Test-Path "client") {
+            Set-Location "client"
+          } else {
+            Write-Error "client folder not found!"
+            exit 1
+          }
+          
+          # Verify build script exists
+          if (-not (Test-Path "build_installer.ps1")) {
+            Write-Error "build_installer.ps1 not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building client in: $(Get-Location)"
+          
+          # Run build script in Windows container
           octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
-          Set-Location ..
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Client build failed!"
+            exit 1
+          }
+          
+          # Copy outputs from dist to dist_windows/client
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_windows\client"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after client build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
 
-      - name: Build Runner
+      - name: Build Server (Windows)
         shell: powershell
         run: |
-          Set-Location "runner"
+          # Navigate to octo/server
+          if (Test-Path "octo\server") {
+            Set-Location "octo\server"
+          } elseif (Test-Path "server") {
+            Set-Location "server"
+          } else {
+            Write-Error "server folder not found!"
+            exit 1
+          }
+          
+          if (-not (Test-Path "build_installer.ps1")) {
+            Write-Error "build_installer.ps1 not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building server in: $(Get-Location)"
+          
           octo run build_installer.ps1
-          New-Item -ItemType Directory -Force -Path "$PWD/../dist_windows" | Out-Null
-          Copy-Item "dist/*" "$PWD/../dist_windows" -Force
-          Set-Location ..
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Server build failed!"
+            exit 1
+          }
+          
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_windows\server"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after server build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
+
+      - name: Build Runner (Windows)
+        shell: powershell
+        run: |
+          # Navigate to octo/runner
+          if (Test-Path "octo\runner") {
+            Set-Location "octo\runner"
+          } elseif (Test-Path "runner") {
+            Set-Location "runner"
+          } else {
+            Write-Error "runner folder not found!"
+            exit 1
+          }
+          
+          if (-not (Test-Path "build_installer.ps1")) {
+            Write-Error "build_installer.ps1 not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building runner in: $(Get-Location)"
+          
+          octo run build_installer.ps1
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Runner build failed!"
+            exit 1
+          }
+          
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_windows\runner"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after runner build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
+
+      - name: Verify Windows builds
+        shell: powershell
+        run: |
+          Write-Host "Checking built files..."
+          Get-ChildItem -Recurse dist_windows
+          
+          # Check if any .exe or .msi files exist
+          $installers = Get-ChildItem -Recurse -Path "dist_windows" -Include *.exe,*.msi
+          if ($installers.Count -eq 0) {
+            Write-Error "No installers found in dist_windows!"
+            exit 1
+          }
+          Write-Host "Found $($installers.Count) installer(s)"
 
       - name: Create Windows ZIP
         shell: powershell
         run: |
-          Compress-Archive -Path "dist_windows/*" -DestinationPath "octo-windows.zip"
+          Compress-Archive -Path "dist_windows\*" -DestinationPath "octo-windows.zip" -Force
 
       - name: Upload Windows ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-windows
           path: octo-windows.zip
+          retention-days: 30
 
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
-    runs-on: [self-hosted, windows, x64, octo]  # allows Windows or Linux runners
+    runs-on: [self-hosted, windows, x64, octo]  # Still Windows runner!
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Octo login
-        shell: bash
+      - name: Debug - Show directory structure
+        shell: powershell
         run: |
-          octo login --token $OCTO_TOKEN --server $OCTO_SERVER
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Directory structure:"
+          Get-ChildItem -Recurse -Depth 2 | Select-Object FullName
+
+      - name: Octo login
+        shell: powershell
+        run: |
+          chcp 65001 > $null
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
 
       - name: Configure Linux Docker
-        shell: bash
+        shell: powershell
         run: |
+          # Switch to Linux container for Linux builds
           octo config --docker python:3.11-slim
 
-      - name: Build Client
-        shell: bash
+      - name: Create dist directory
+        shell: powershell
         run: |
-          cd client
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../dist_linux
-          cp dist/*.deb ../dist_linux/ || true
-          cd ..
+          New-Item -ItemType Directory -Force -Path "dist_linux" | Out-Null
 
-      - name: Build Server
-        shell: bash
+      - name: Build Client (Linux)
+        shell: powershell
         run: |
-          cd server
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../dist_linux
-          cp dist/*.deb ../dist_linux/ || true
-          cd ..
+          # Navigate to octo/client
+          if (Test-Path "octo\client") {
+            Set-Location "octo\client"
+          } elseif (Test-Path "client") {
+            Set-Location "client"
+          } else {
+            Write-Error "client folder not found!"
+            exit 1
+          }
+          
+          if (-not (Test-Path "build_installer.sh")) {
+            Write-Error "build_installer.sh not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building client (Linux) in: $(Get-Location)"
+          
+          # Run build script in Linux container
+          octo run build_installer.sh
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Client build failed!"
+            exit 1
+          }
+          
+          # Copy outputs
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_linux\client"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after client build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
 
-      - name: Build Runner
-        shell: bash
+      - name: Build Server (Linux)
+        shell: powershell
         run: |
-          cd runner
-          chmod +x build_installer.sh
-          octo run ./build_installer.sh
-          mkdir -p ../dist_linux
-          cp dist/*.deb ../dist_linux/ || true
-          cd ..
+          # Navigate to octo/server
+          if (Test-Path "octo\server") {
+            Set-Location "octo\server"
+          } elseif (Test-Path "server") {
+            Set-Location "server"
+          } else {
+            Write-Error "server folder not found!"
+            exit 1
+          }
+          
+          if (-not (Test-Path "build_installer.sh")) {
+            Write-Error "build_installer.sh not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building server (Linux) in: $(Get-Location)"
+          
+          octo run build_installer.sh
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Server build failed!"
+            exit 1
+          }
+          
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_linux\server"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after server build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
+
+      - name: Build Runner (Linux)
+        shell: powershell
+        run: |
+          # Navigate to octo/runner
+          if (Test-Path "octo\runner") {
+            Set-Location "octo\runner"
+          } elseif (Test-Path "runner") {
+            Set-Location "runner"
+          } else {
+            Write-Error "runner folder not found!"
+            exit 1
+          }
+          
+          if (-not (Test-Path "build_installer.sh")) {
+            Write-Error "build_installer.sh not found in $(Get-Location)!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Write-Host "Building runner (Linux) in: $(Get-Location)"
+          
+          octo run build_installer.sh
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Runner build failed!"
+            exit 1
+          }
+          
+          if (Test-Path "dist") {
+            $destPath = "..\..\dist_linux\runner"
+            New-Item -ItemType Directory -Force -Path $destPath | Out-Null
+            Copy-Item -Recurse "dist\*" $destPath -Force
+            Write-Host "Copied outputs to $destPath"
+          } else {
+            Write-Error "No dist folder found after runner build!"
+            Get-ChildItem
+            exit 1
+          }
+          
+          Set-Location ..\..
+
+      - name: Verify Linux builds
+        shell: powershell
+        run: |
+          Write-Host "Checking built files..."
+          Get-ChildItem -Recurse dist_linux
+          
+          # Check if any .deb or .rpm files exist
+          $installers = Get-ChildItem -Recurse -Path "dist_linux" -Include *.deb,*.rpm,*.tar.gz
+          if ($installers.Count -eq 0) {
+            Write-Error "No installers found in dist_linux!"
+            exit 1
+          }
+          Write-Host "Found $($installers.Count) installer(s)"
 
       - name: Create Linux ZIP
-        shell: bash
+        shell: powershell
         run: |
-          zip -r octo-linux.zip dist_linux/ || true
+          Compress-Archive -Path "dist_linux\*" -DestinationPath "octo-linux.zip" -Force
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-linux
           path: octo-linux.zip
+          retention-days: 30
