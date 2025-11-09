@@ -31,12 +31,13 @@ jobs:
         shell: powershell
         run: |
           $components = @("client","server","runner")
+          $rootPath = $PWD
           foreach ($comp in $components) {
               Write-Host "=============================="
               Write-Host "Building $comp for Windows"
               Write-Host "=============================="
 
-              $path = Join-Path $PWD $comp
+              $path = Join-Path $rootPath $comp
               if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
               Set-Location $path
 
@@ -46,23 +47,23 @@ jobs:
               & ".\build_installer.ps1"
               if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
-              Set-Location $PWD
+              Set-Location $rootPath
           }
 
       - name: Package Windows installers
         shell: powershell
         run: |
-          $expectedFiles = @(
-            "client\octo-client-0.1-setup.exe",
-            "runner\octo-runner-0.1-setup.exe",
-            "server\octo-server-0.1-setup.exe"
-          )
-
-          foreach ($file in $expectedFiles) {
-            if (-not (Test-Path $file)) { Write-Error "Expected file $file not found!"; exit 1 }
+          $installerFiles = @()
+          foreach ($comp in $components) {
+              $installer = Join-Path $comp "octo-$comp-0.1-setup.exe"
+              if (-not (Test-Path $installer)) { 
+                  Write-Error "Expected installer not found: $installer"
+                  exit 1 
+              }
+              $installerFiles += $installer
           }
 
-          Compress-Archive -Path $expectedFiles -DestinationPath "octo-windows.zip" -Force
+          Compress-Archive -Path $installerFiles -DestinationPath "octo-windows.zip" -Force
           Write-Host "Windows ZIP created with exact installer files."
 
       - name: Upload Windows ZIP
@@ -100,12 +101,13 @@ jobs:
         shell: powershell
         run: |
           $components = @("client","server","runner")
+          $rootPath = $PWD
           foreach ($comp in $components) {
             Write-Host "=============================="
             Write-Host "Building $comp for Linux"
             Write-Host "=============================="
 
-            $path = Join-Path $PWD $comp
+            $path = Join-Path $rootPath $comp
             if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
             Set-Location $path
 
@@ -115,23 +117,23 @@ jobs:
             octo run build_installer.sh
             if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
 
-            Set-Location $PWD
+            Set-Location $rootPath
           }
 
       - name: Package Linux installers
         shell: powershell
         run: |
-          $expectedFiles = @(
-            "client\octo-client_0.1_amd64.deb",
-            "runner\octo-runner_0.1_amd64.deb",
-            "server\octo-server_0.1_amd64.deb"
-          )
-
-          foreach ($file in $expectedFiles) {
-            if (-not (Test-Path $file)) { Write-Error "Expected file $file not found!"; exit 1 }
+          $installerFiles = @()
+          foreach ($comp in $components) {
+              $installer = Join-Path $comp "octo-$comp`_0.1_amd64.deb"
+              if (-not (Test-Path $installer)) { 
+                  Write-Error "Expected installer not found: $installer"
+                  exit 1 
+              }
+              $installerFiles += $installer
           }
 
-          Compress-Archive -Path $expectedFiles -DestinationPath "octo-linux.zip" -Force
+          Compress-Archive -Path $installerFiles -DestinationPath "octo-linux.zip" -Force
           Write-Host "Linux ZIP created with exact .deb files."
 
       - name: Upload Linux ZIP
