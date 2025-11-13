@@ -121,12 +121,14 @@ jobs:
           echo "Building client..."
           octo run ./start_build.sh
 
+      - name: Build Server
         shell: powershell
         run: |
           cd server
           echo "Building server..."
           octo run ./start_build.sh &
-        
+
+      - name: Build Runner
         shell: powershell
         run: |
           cd runner
