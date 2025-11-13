@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: 'Welche Plattform bauen? windows/linux/all'
-        required: false
+        description: 'Welche Plattform bauen?'
+        required: true
+        type: choice
         default: 'all'
+        options:
+          - all
+          - windows
+          - linux
 
 env:
   OCTO_TOKEN: token1
@@ -62,7 +67,6 @@ jobs:
           
           foreach ($comp in $components) {
               Write-Host "Looking for installer for component: $comp"
-              # Join paths in two steps
               $compPath = Join-Path $PWD $comp
               $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
               Write-Host "Checking path: $installer"
@@ -89,7 +93,7 @@ jobs:
           path: octo-windows.zip
           retention-days: 30
 
-    build-linux:
+  build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers (parallel with Octo)
     runs-on: [self-hosted, windows, x64, octo]
@@ -134,7 +138,6 @@ jobs:
             octo run ./start_build.sh &
           )
 
-          # wait for all builds to finish
           wait
           echo "All Octo builds finished successfully."
 
@@ -151,4 +154,3 @@ jobs:
           name: octo-linux
           path: octo-linux.zip
           retention-days: 30
-
