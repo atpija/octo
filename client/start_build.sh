@@ -1,5 +1,10 @@
 #!/bin/bash
-pip install pyinstaller
+
+# Install all required Python packages
+echo "Installing required Python packages..."
+pip install --upgrade pip setuptools wheel
+pip install pyinstaller typer requests flask
+
 # Stelle sicher, dass build_installer.sh ausführbar ist
 chmod +x build_installer.sh
 
