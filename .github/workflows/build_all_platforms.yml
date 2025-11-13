@@ -114,30 +114,25 @@ jobs:
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker python:3.11
 
-      - name: Build all Linux components (parallel)
+      - name: Build Client
         shell: powershell
         run: |
-          set -e
-          echo "Starting parallel Octo builds..."
+          cd client
+          echo "Building client..."
+          octo run ./start_build.sh
 
-          (
-            cd client
-            echo "Building client..."
-            octo run ./start_build.sh &
-          )
-
-          (
-            cd server
-            echo "Building server..."
-            octo run ./start_build.sh &
-          )
-
-          (
-            cd runner
-            echo "Building runner..."
-            octo run ./start_build.sh &
-          )
-
+        shell: powershell
+        run: |
+          cd server
+          echo "Building server..."
+          octo run ./start_build.sh &
+        
+        shell: powershell
+        run: |
+          cd runner
+          echo "Building runner..."
+          octo run ./start_build.sh &
+          
           wait
           echo "All Octo builds finished successfully."
 
