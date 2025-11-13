@@ -13,124 +13,142 @@ env:
   OCTO_SERVER: http://127.0.0.1:5000
 
 jobs:
-  # =========================
-  # WINDOWS BUILDS (parallel)
-  # =========================
-  build-windows-client:
+  build-windows:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
-    name: Build Windows Client
+    name: Build Windows Installers
     runs-on: [self-hosted, windows, x64, octo]
-    steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          Set-Location client
-          & ".\build_installer.ps1"
 
-  build-windows-server:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
-    name: Build Windows Server
-    runs-on: [self-hosted, windows, x64, octo]
     steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          Set-Location server
-          & ".\build_installer.ps1"
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  build-windows-runner:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
-    name: Build Windows Runner
-    runs-on: [self-hosted, windows, x64, octo]
-    steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          Set-Location runner
-          & ".\build_installer.ps1"
-
-  package-windows:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
-    name: Package Windows Installers
-    runs-on: [self-hosted, windows, x64, octo]
-    needs: [build-windows-client, build-windows-server, build-windows-runner]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Collect installers and zip
+      - name: Remove old Windows ZIP
         shell: powershell
         run: |
-          $installerFiles = @(
-            "client/octo-client-0.1-setup.exe",
-            "server/octo-server-0.1-setup.exe",
-            "runner/octo-runner-0.1-setup.exe"
-          )
+          if (Test-Path "octo-windows.zip") { Remove-Item "octo-windows.zip" -Force }
+
+      - name: Build all Windows components
+        shell: powershell
+        run: |
+          $components = @("client","server","runner")
+          $rootPath = $PWD
+          foreach ($comp in $components) {
+              Write-Host "=============================="
+              Write-Host "Building $comp for Windows"
+              Write-Host "=============================="
+
+              $path = Join-Path $rootPath $comp
+              if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
+              Set-Location $path
+
+              if (-not (Test-Path "build_installer.ps1")) { Write-Error "build_installer.ps1 not found"; exit 1 }
+
+              Write-Host "Running build_installer.ps1 for $comp..."
+              & ".\build_installer.ps1"
+              if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
+
+              Set-Location $rootPath
+          }
+
+      - name: Package Windows installers
+        shell: powershell
+        run: |
+          Write-Host "Current directory: $PWD"
+          Write-Host "Listing all files in workspace:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          
+          $components = @("client","server","runner")
+          $installerFiles = @()
+          
+          foreach ($comp in $components) {
+              Write-Host "Looking for installer for component: $comp"
+              # Join paths in two steps
+              $compPath = Join-Path $PWD $comp
+              $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
+              Write-Host "Checking path: $installer"
+              
+              if (Test-Path $installer) {
+                  Write-Host "Found installer at: $installer"
+                  $installerFiles += $installer
+              } else {
+                  Write-Error "Expected installer not found: $installer"
+                  exit 1
+              }
+          }
+
+          Write-Host "Found installer files:"
+          $installerFiles | ForEach-Object { Write-Host "- $_" }
+
           Compress-Archive -Path $installerFiles -DestinationPath "octo-windows.zip" -Force
-      - uses: actions/upload-artifact@v4
+          Write-Host "Windows ZIP created with exact installer files."
+
+      - name: Upload Windows ZIP
+        uses: actions/upload-artifact@v4
         with:
           name: octo-windows
           path: octo-windows.zip
           retention-days: 30
 
-  # =========================
-  # LINUX BUILDS (parallel)
-  # =========================
-  build-linux-client:
+    build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Build Linux Client
+    name: Build Linux Installers (parallel with Octo)
     runs-on: [self-hosted, windows, x64, octo]
-    steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11
-          Set-Location client
-          octo run ./start_build.sh
 
-  build-linux-server:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Build Linux Server
-    runs-on: [self-hosted, windows, x64, octo]
     steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11
-          Set-Location server
-          octo run ./start_build.sh
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  build-linux-runner:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Build Linux Runner
-    runs-on: [self-hosted, windows, x64, octo]
-    steps:
-      - uses: actions/checkout@v4
-      - shell: powershell
-        run: |
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11
-          Set-Location runner
-          octo run ./start_build.sh
-
-  package-linux:
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Package Linux Installers
-    runs-on: [self-hosted, windows, x64, octo]
-    needs: [build-linux-client, build-linux-server, build-linux-runner]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Collect .deb files and zip
+      - name: Clean old artifacts
         shell: powershell
         run: |
-          $installerFiles = @(
-            "client/octo-client_0.1_amd64.deb",
-            "server/octo-server_0.1_amd64.deb",
-            "runner/octo-runner_0.1_amd64.deb"
+          if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
+
+      - name: Octo login & config
+        shell: powershell
+        run: |
+          chcp 65001 > $null
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          octo config --docker python:3.11
+
+      - name: Build all Linux components (parallel)
+        shell: bash
+        run: |
+          set -e
+          echo "Starting parallel Octo builds..."
+
+          (
+            cd client
+            echo "Building client..."
+            octo run ./start_build.sh &
           )
-          Compress-Archive -Path $installerFiles -DestinationPath "octo-linux.zip" -Force
-      - uses: actions/upload-artifact@v4
+
+          (
+            cd server
+            echo "Building server..."
+            octo run ./start_build.sh &
+          )
+
+          (
+            cd runner
+            echo "Building runner..."
+            octo run ./start_build.sh &
+          )
+
+          # wait for all builds to finish
+          wait
+          echo "All Octo builds finished successfully."
+
+      - name: Package Linux installers
+        shell: bash
+        run: |
+          echo "Packaging .deb files..."
+          zip -j octo-linux.zip client/octo-client_0.1_amd64.deb server/octo-server_0.1_amd64.deb runner/octo-runner_0.1_amd64.deb
+          echo "Linux ZIP created: octo-linux.zip"
+
+      - name: Upload Linux ZIP
+        uses: actions/upload-artifact@v4
         with:
           name: octo-linux
           path: octo-linux.zip
           retention-days: 30
+
