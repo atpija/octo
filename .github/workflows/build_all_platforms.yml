@@ -115,7 +115,7 @@ jobs:
           octo config --docker python:3.11
 
       - name: Build all Linux components (parallel)
-        shell: bash
+        shell: powershell
         run: |
           set -e
           echo "Starting parallel Octo builds..."
@@ -142,7 +142,7 @@ jobs:
           echo "All Octo builds finished successfully."
 
       - name: Package Linux installers
-        shell: bash
+        shell: powershell
         run: |
           echo "Packaging .deb files..."
           zip -j octo-linux.zip client/octo-client_0.1_amd64.deb server/octo-server_0.1_amd64.deb runner/octo-runner_0.1_amd64.deb
