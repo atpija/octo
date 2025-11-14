@@ -124,26 +124,27 @@ jobs:
           $jobs = @()
 
           # CLIENT
-          $jobs += Start-Process pwsh -ArgumentList @(
+          $jobs += Start-Process powershell.exe -ArgumentList @(
             '-NoLogo','-NoProfile','-Command',
-            "cd $root/client; echo 'Client build starting'; octo run ./start_build.sh | Tee-Object $root/client_build.log"
+            "cd `"$root/client`"; echo 'Client build starting'; octo run ./start_build.sh | Tee-Object `"$root/client_build.log`""
           ) -PassThru
 
           # SERVER
-          $jobs += Start-Process pwsh -ArgumentList @(
+          $jobs += Start-Process powershell.exe -ArgumentList @(
             '-NoLogo','-NoProfile','-Command',
-            "cd $root/server; echo 'Server build starting'; octo run ./start_build.sh | Tee-Object $root/server_build.log"
+            "cd `"$root/server`"; echo 'Server build starting'; octo run ./start_build.sh | Tee-Object `"$root/server_build.log`""
           ) -PassThru
 
           # RUNNER
-          $jobs += Start-Process pwsh -ArgumentList @(
+          $jobs += Start-Process powershell.exe -ArgumentList @(
             '-NoLogo','-NoProfile','-Command',
-            "cd $root/runner; echo 'Runner build starting'; octo run ./start_build.sh | Tee-Object $root/runner_build.log"
+            "cd `"$root/runner`"; echo 'Runner build starting'; octo run ./start_build.sh | Tee-Object `"$root/runner_build.log`""
           ) -PassThru
 
           Write-Host "Parallel tasks started, waiting for completion..."
           $jobs | Wait-Process
           Write-Host "All builds finished!"
+
 
       - name: Show Octo output logs
         shell: powershell
