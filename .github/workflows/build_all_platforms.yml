@@ -113,7 +113,7 @@ jobs:
         run: |
           chcp 65001 > $null
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11-slim
+          octo config --docker python:3.11
 
       - name: Run Linux builds in parallel (OS-level concurrency)
         shell: powershell
