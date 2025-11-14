@@ -156,16 +156,22 @@ jobs:
           Write-Host "===== RUNNER LOG ====="
           Get-Content runner_build.log
 
-      - name: Package Linux installers
+      - name: Package .deb files
         shell: powershell
         run: |
-          echo "Packaging .deb files..."
-          zip -j octo-linux.zip `
-            client/octo-client_0.1_amd64.deb `
-            server/octo-server_0.1_amd64.deb `
-            runner/octo-runner_0.1_amd64.deb
+          Write-Host "Packaging .deb files..."
 
-          echo "Linux ZIP created: octo-linux.zip"
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb
+
+          if (-not $debFiles) {
+              Write-Error "No .deb files found!"
+              exit 1
+          }
+
+          Compress-Archive -Path $debFiles.FullName -DestinationPath octo-linux.zip -Force
+
+          Write-Host "Created octo-linux.zip successfully."
+
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
