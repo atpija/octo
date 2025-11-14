@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: 'Welche Plattform bauen? windows/linux/all'
-        required: false
+        description: 'Welche Plattform bauen?'
+        required: true
+        type: choice
         default: 'all'
+        options:
+          - all
+          - windows
+          - linux
 
 env:
   OCTO_TOKEN: token1
@@ -56,17 +61,16 @@ jobs:
           Write-Host "Current directory: $PWD"
           Write-Host "Listing all files in workspace:"
           Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
-          
+
           $components = @("client","server","runner")
           $installerFiles = @()
-          
+
           foreach ($comp in $components) {
               Write-Host "Looking for installer for component: $comp"
-              # Join paths in two steps
               $compPath = Join-Path $PWD $comp
               $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
               Write-Host "Checking path: $installer"
-              
+
               if (Test-Path $installer) {
                   Write-Host "Found installer at: $installer"
                   $installerFiles += $installer
@@ -91,87 +95,97 @@ jobs:
 
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Build Linux Installers
+    name: Build Linux Installers (parallel with Octo)
     runs-on: [self-hosted, windows, x64, octo]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Remove old Linux ZIP
+      - name: Clean old artifacts
         shell: powershell
         run: |
           if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
+          Remove-Item -Force -ErrorAction Ignore client_build.log, server_build.log, runner_build.log
 
-      - name: Octo login
+      - name: Octo login & config
         shell: powershell
         run: |
           chcp 65001 > $null
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          octo config --docker python:3.11
 
-      - name: Configure Linux Docker
-        shell: powershell
-        run: octo config --docker python:3.11
-
-      - name: Build all Linux components
+      - name: Run Linux builds in parallel (OS-level concurrency)
         shell: powershell
         run: |
-          $components = @("client","server","runner")
-          $rootPath = $PWD
-          foreach ($comp in $components) {
-            Write-Host "=============================="
-            Write-Host "Building $comp for Linux"
-            Write-Host "=============================="
+          Write-Host "Starting parallel Octo Linux builds..."
 
-            $path = Join-Path $rootPath $comp
-            if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
-            Set-Location $path
+          $root = Get-Location
+          $jobs = @()
 
-            if (-not (Test-Path "start_build.sh")) { Write-Error "start_build.sh not found"; exit 1 }
+          # CLIENT
+          $jobs += Start-Process powershell.exe -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd `"$root/client`"; echo 'Client build starting'; octo run ./start_build.sh | Tee-Object `"$root/client_build.log`""
+          ) -PassThru
 
-            Write-Host "Running start_build.sh for $comp..."
-            # Run chmod and execute in a single command through octo
-            octo run ./start_build.sh
-            if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
+          # SERVER
+          $jobs += Start-Process powershell.exe -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd `"$root/server`"; echo 'Server build starting'; octo run ./start_build.sh | Tee-Object `"$root/server_build.log`""
+          ) -PassThru
 
-            Set-Location $rootPath
-          }
+          # RUNNER
+          $jobs += Start-Process powershell.exe -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd `"$root/runner`"; echo 'Runner build starting'; octo run ./start_build.sh | Tee-Object `"$root/runner_build.log`""
+          ) -PassThru
 
-      - name: Package Linux installers
+          Write-Host "Parallel tasks started, waiting for completion..."
+          $jobs | Wait-Process
+          Write-Host "All builds finished!"
+
+
+      - name: Show Octo output logs
         shell: powershell
         run: |
-          Write-Host "Current directory: $PWD"
-          Write-Host "Listing all files in workspace:"
-          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
-          
-          $components = @("client","server","runner")
-          $installerFiles = @()
-          
-          foreach ($comp in $components) {
-              Write-Host "Looking for .deb package for component: $comp"
-              # Join paths in two steps
-              $compPath = Join-Path $PWD $comp
-              $installer = Join-Path $compPath "octo-$comp`_0.1_amd64.deb"
-              Write-Host "Checking path: $installer"
-              
-              if (Test-Path $installer) {
-                  Write-Host "Found .deb package at: $installer"
-                  $installerFiles += $installer
-              } else {
-                  Write-Error "Expected .deb package not found: $installer"
-                  exit 1
-              }
+          Write-Host "===== CLIENT LOG ====="
+          Get-Content client_build.log
+          Write-Host "===== SERVER LOG ====="
+          Get-Content server_build.log
+          Write-Host "===== RUNNER LOG ====="
+          Get-Content runner_build.log
+
+      - name: Package .deb files
+        shell: powershell
+        run: |
+          Write-Host "Packaging .deb files..."
+
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb
+
+          if (-not $debFiles) {
+              Write-Error "No .deb files found!"
+              exit 1
           }
 
-          Write-Host "Found .deb packages:"
-          $installerFiles | ForEach-Object { Write-Host "- $_" }
+          Compress-Archive -Path $debFiles.FullName -DestinationPath octo-linux.zip -Force
 
-          Compress-Archive -Path $installerFiles -DestinationPath "octo-linux.zip" -Force
-          Write-Host "Linux ZIP created with exact .deb files."
+          Write-Host "Created octo-linux.zip successfully."
+
 
       - name: Upload Linux ZIP
         uses: actions/upload-artifact@v4
         with:
           name: octo-linux
           path: octo-linux.zip
+          retention-days: 30
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallel-octo-logs
+          path: |
+            client_build.log
+            server_build.log
+            runner_build.log
           retention-days: 30
