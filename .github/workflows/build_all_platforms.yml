@@ -61,16 +61,16 @@ jobs:
           Write-Host "Current directory: $PWD"
           Write-Host "Listing all files in workspace:"
           Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
-          
+
           $components = @("client","server","runner")
           $installerFiles = @()
-          
+
           foreach ($comp in $components) {
               Write-Host "Looking for installer for component: $comp"
               $compPath = Join-Path $PWD $comp
               $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
               Write-Host "Checking path: $installer"
-              
+
               if (Test-Path $installer) {
                   Write-Host "Found installer at: $installer"
                   $installerFiles += $installer
@@ -106,6 +106,7 @@ jobs:
         shell: powershell
         run: |
           if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
+          Remove-Item -Force -ErrorAction Ignore client_build.log, server_build.log, runner_build.log
 
       - name: Octo login & config
         shell: powershell
@@ -114,35 +115,55 @@ jobs:
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker python:3.11
 
-      - name: Build Client
+      - name: Run Linux builds in parallel (OS-level concurrency)
         shell: powershell
         run: |
-          cd client
-          echo "Building client..."
-          octo run ./start_build.sh
+          Write-Host "Starting parallel Octo Linux builds..."
 
-      - name: Build Server
-        shell: powershell
-        run: |
-          cd server
-          echo "Building server..."
-          octo run ./start_build.sh &
+          $root = Get-Location
+          $jobs = @()
 
-      - name: Build Runner
+          # CLIENT
+          $jobs += Start-Process pwsh -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd $root/client; echo 'Client build starting'; octo run ./start_build.sh | Tee-Object $root/client_build.log"
+          ) -PassThru
+
+          # SERVER
+          $jobs += Start-Process pwsh -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd $root/server; echo 'Server build starting'; octo run ./start_build.sh | Tee-Object $root/server_build.log"
+          ) -PassThru
+
+          # RUNNER
+          $jobs += Start-Process pwsh -ArgumentList @(
+            '-NoLogo','-NoProfile','-Command',
+            "cd $root/runner; echo 'Runner build starting'; octo run ./start_build.sh | Tee-Object $root/runner_build.log"
+          ) -PassThru
+
+          Write-Host "Parallel tasks started, waiting for completion..."
+          $jobs | Wait-Process
+          Write-Host "All builds finished!"
+
+      - name: Show Octo output logs
         shell: powershell
         run: |
-          cd runner
-          echo "Building runner..."
-          octo run ./start_build.sh &
-          
-          wait
-          echo "All Octo builds finished successfully."
+          Write-Host "===== CLIENT LOG ====="
+          Get-Content client_build.log
+          Write-Host "===== SERVER LOG ====="
+          Get-Content server_build.log
+          Write-Host "===== RUNNER LOG ====="
+          Get-Content runner_build.log
 
       - name: Package Linux installers
         shell: powershell
         run: |
           echo "Packaging .deb files..."
-          zip -j octo-linux.zip client/octo-client_0.1_amd64.deb server/octo-server_0.1_amd64.deb runner/octo-runner_0.1_amd64.deb
+          zip -j octo-linux.zip `
+            client/octo-client_0.1_amd64.deb `
+            server/octo-server_0.1_amd64.deb `
+            runner/octo-runner_0.1_amd64.deb
+
           echo "Linux ZIP created: octo-linux.zip"
 
       - name: Upload Linux ZIP
@@ -150,4 +171,14 @@ jobs:
         with:
           name: octo-linux
           path: octo-linux.zip
+          retention-days: 30
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: parallel-octo-logs
+          path: |
+            client_build.log
+            server_build.log
+            runner_build.log
           retention-days: 30
