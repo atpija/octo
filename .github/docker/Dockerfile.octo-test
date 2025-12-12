@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip setuptools wheel && \
     pip install pytest
 
-# Kopiere alle .deb Dateien
-COPY *.deb /tmp/
+# Kopiere alle .deb Dateien aus docker_debs/
+COPY docker_debs/*.deb /tmp/
 
-# Installiere alle .deb Dateien mit find
+# Installiere alle .deb Dateien
 RUN cd /tmp && \
     find . -name "*.deb" -exec apt-get install -y {} \; && \
     rm -f /tmp/*.deb
@@ -30,16 +30,14 @@ octo-server token-add demo-token
 
 echo "🚀 Starting Octo Server..."
 octo-server server &
-SERVER_PID=$$
+SERVER_PID=$!
 
-# Warte kurz, bis der Server startet
 sleep 2
 
 echo "🏃 Starting Octo Runner with demo token..."
 octo-runner --token demo-token &
-RUNNER_PID=$$
+RUNNER_PID=$!
 
-# Halte beide Prozesse am Laufen
 wait
 ENTRYPOINT_EOF
 

@@ -155,6 +155,26 @@ jobs:
           Get-Content server_build.log
           Write-Host "===== RUNNER LOG ====="
           Get-Content runner_build.log
+          
+      - name: Collect .deb files into docker_debs/
+        shell: powershell
+        run: |
+          Write-Host "Collecting .deb files..."
+
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb
+          if (-not $debFiles) {
+              Write-Error "No .deb files found!"
+              exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
+
+          foreach ($file in $debFiles) {
+              Copy-Item $file.FullName docker_debs/
+          }
+
+          Write-Host "Copied the following .deb files into docker_debs/:"
+          Get-ChildItem docker_debs
 
       - name: Package .deb files
         shell: powershell
