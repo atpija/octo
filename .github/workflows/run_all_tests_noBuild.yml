@@ -39,4 +39,6 @@ jobs:
       - name: Run smoketest inside container
         shell: powershell
         run: |
-          docker run --rm octo-test:latest /octo/tests/smoketest.sh
+          cd test
+          chmod +x smoketest.sh
+          octo run smoketest.sh
