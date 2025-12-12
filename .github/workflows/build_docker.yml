@@ -35,26 +35,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker Image
+        shell: powershell
         run: |
-          echo "════════════════════════════════════════"
-          echo "🐳 Baue Docker Image"
-          echo "════════════════════════════════════════"
-          echo "Image Name:  ${{ inputs.image_name }}"
-          echo "Dockerfile:  ${{ inputs.dockerfile }}"
-          echo "════════════════════════════════════════"
+          Write-Host "════════════════════════════════════════"
+          Write-Host "🐳 Baue Docker Image"
+          Write-Host "════════════════════════════════════════"
+          Write-Host "Image Name:  ${{ inputs.image_name }}"
+          Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
+          Write-Host "════════════════════════════════════════"
           
-          docker build \
-            -f "${{ inputs.dockerfile }}" \
-            -t "${{ inputs.image_name }}" \
+          docker build `
+            -f "${{ inputs.dockerfile }}" `
+            -t "${{ inputs.image_name }}" `
             .
           
-          echo ""
-          echo "✅ Docker Image erfolgreich gebaut: ${{ inputs.image_name }}"
-          echo ""
-          echo "Image Informationen:"
-          docker images "${{ inputs.image_name }}" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+          Write-Host ""
+          Write-Host "✅ Docker Image erfolgreich gebaut: ${{ inputs.image_name }}"
+          Write-Host ""
+          Write-Host "Image Informationen:"
+          docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
 
       - name: Test Docker Image
+        shell: powershell
         run: |
-          echo "🧪 Teste Docker Image..."
+          Write-Host "🧪 Teste Docker Image..."
           docker run --rm ${{ inputs.image_name }} echo "✅ Image funktioniert!"
