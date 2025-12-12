@@ -155,7 +155,7 @@ jobs:
           Get-Content server_build.log
           Write-Host "===== RUNNER LOG ====="
           Get-Content runner_build.log
-          
+
       - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
@@ -176,19 +176,17 @@ jobs:
           Write-Host "Copied the following .deb files into docker_debs/:"
           Get-ChildItem docker_debs
 
-      - name: Package .deb files
+      - name: Package docker_debs folder
         shell: powershell
         run: |
-          Write-Host "Packaging .deb files..."
+          Write-Host "Packaging docker_debs/*.deb ..."
 
-          $debFiles = Get-ChildItem -Recurse -Filter *.deb
-
-          if (-not $debFiles) {
-              Write-Error "No .deb files found!"
+          if (-not (Test-Path "docker_debs")) {
+              Write-Error "docker_debs directory missing!"
               exit 1
           }
 
-          Compress-Archive -Path $debFiles.FullName -DestinationPath octo-linux.zip -Force
+          Compress-Archive -Path docker_debs/* -DestinationPath octo-linux.zip -Force
 
           Write-Host "Created octo-linux.zip successfully."
 
