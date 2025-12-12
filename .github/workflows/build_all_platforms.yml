@@ -191,22 +191,22 @@ jobs:
           Write-Host "Created octo-linux.zip successfully."
 
 
-      - name: Upload Linux ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: octo-linux
-          path: octo-linux.zip
-          retention-days: 30
-
-      - name: Upload build logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: parallel-octo-logs
-          path: |
-            client_build.log
-            server_build.log
-            runner_build.log
-          retention-days: 30
+#      - name: Upload Linux ZIP
+ #       uses: actions/upload-artifact@v4
+  #      with:
+   #       name: octo-linux
+    #      path: octo-linux.zip
+     #     retention-days: 30
+#
+ #     - name: Upload build logs
+  #      uses: actions/upload-artifact@v4
+   #     with:
+    #      name: parallel-octo-logs
+     #     path: |
+      #      client_build.log
+       #     server_build.log
+        #    runner_build.log
+         # retention-days: 30
 
   build-and-test-docker:
     name: Build Docker Image & Run Smoketest
