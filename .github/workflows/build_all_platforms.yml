@@ -156,19 +156,37 @@ jobs:
           Write-Host "===== RUNNER LOG ====="
           Get-Content runner_build.log
 
-      - name: Package .deb files
+      - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
-          Write-Host "Packaging .deb files..."
+          Write-Host "Collecting .deb files..."
 
           $debFiles = Get-ChildItem -Recurse -Filter *.deb
-
           if (-not $debFiles) {
               Write-Error "No .deb files found!"
               exit 1
           }
 
-          Compress-Archive -Path $debFiles.FullName -DestinationPath octo-linux.zip -Force
+          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
+
+          foreach ($file in $debFiles) {
+              Copy-Item $file.FullName docker_debs/
+          }
+
+          Write-Host "Copied the following .deb files into docker_debs/:"
+          Get-ChildItem docker_debs
+
+      - name: Package docker_debs folder
+        shell: powershell
+        run: |
+          Write-Host "Packaging docker_debs/*.deb ..."
+
+          if (-not (Test-Path "docker_debs")) {
+              Write-Error "docker_debs directory missing!"
+              exit 1
+          }
+
+          Compress-Archive -Path docker_debs/* -DestinationPath octo-linux.zip -Force
 
           Write-Host "Created octo-linux.zip successfully."
 
@@ -189,3 +207,32 @@ jobs:
             server_build.log
             runner_build.log
           retention-days: 30
+
+  build-and-test-docker:
+    name: Build Docker Image & Run Smoketest
+    uses: ./.github/workflows/build_docker.yml
+    needs: build-linux
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    with:
+      image_name: 'octo-test'
+      dockerfile: '.github/docker/Dockerfile.octo-test'
+
+  run-smoketest:
+    name: Run Smoketest
+    uses: ./.github/workflows/run_all_tests_linux.yml
+    needs: build-and-test-docker
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: [self-hosted, windows, x64, octo]
+    needs: [build-windows, build-linux, build-and-test-docker, run-smoketest]
+    if: always()
+
+    steps:
+      - name: Delete .deb files
+        shell: powershell
+        run: |
+          Write-Host "Cleaning up .deb files..."
+          Get-ChildItem -Filter *.deb -Force -ErrorAction Ignore | Remove-Item -Force
+          Write-Host "✅ Cleanup complete"

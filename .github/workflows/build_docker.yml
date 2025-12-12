@@ -1,0 +1,62 @@
+name: Build Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'Docker Image Name'
+        required: false
+        default: 'octo-test'
+      dockerfile:
+        description: 'Dockerfile Path'
+        required: false
+        default: '.github/docker/Dockerfile.octo-test'
+
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'Docker Octo Test Image'
+        required: false
+        type: string
+        default: 'octo-test'
+      dockerfile:
+        description: 'Dockerfile Path'
+        required: false
+        type: string
+        default: '.github/docker/Dockerfile.octo-test'
+
+jobs:
+  build-docker:
+    name: Build Docker Image
+    runs-on: [self-hosted, windows, x64, octo]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        shell: powershell
+        run: |
+          Write-Host "════════════════════════════════════════"
+          Write-Host "🐳 Baue Docker Image"
+          Write-Host "════════════════════════════════════════"
+          Write-Host "Image Name:  ${{ inputs.image_name }}"
+          Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
+          Write-Host "════════════════════════════════════════"
+          
+          docker build `
+            -f "${{ inputs.dockerfile }}" `
+            -t "${{ inputs.image_name }}" `
+            .
+          
+          Write-Host ""
+          Write-Host "✅ Docker Image erfolgreich gebaut: ${{ inputs.image_name }}"
+          Write-Host ""
+          Write-Host "Image Informationen:"
+          docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
+
+      - name: Test Docker Image
+        shell: powershell
+        run: |
+          Write-Host "🧪 Teste Docker Image..."
+          docker run --rm ${{ inputs.image_name }} echo "✅ Image funktioniert!"
