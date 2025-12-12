@@ -1,17 +1,10 @@
 name: Run Smoketest
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-      - test/**
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 env:
-  OCTO_TOKEN: test-token
+  OCTO_TOKEN: token1
   OCTO_SERVER: http://127.0.0.1:5000
 
 jobs:
