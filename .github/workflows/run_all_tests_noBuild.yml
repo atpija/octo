@@ -1,104 +1,42 @@
-name: Test Docker Image (No Build)
+name: Minimal Octo Docker Smoketest
 
 on:
   workflow_dispatch:
 
-env:
-  OCTO_TOKEN: test-token
-  OCTO_SERVER: http://127.0.0.1:5000
-
 jobs:
-  build-and-test-docker:
-    name: Build Docker Image from Temp & Run Smoketest
+  smoketest:
     runs-on: [self-hosted, windows, x64, octo]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy .deb files from temp to workspace
+      - name: Copy .deb files from temp
         shell: powershell
         run: |
-          Write-Host "════════════════════════════════════════"
-          Write-Host "📦 Copying .deb files from temp"
-          Write-Host "════════════════════════════════════════"
-          
           $tempPath = "${{ runner.workspace }}/temp"
-          Write-Host "Temp path: $tempPath"
-          
           if (-not (Test-Path $tempPath)) {
-              Write-Error "Temp directory not found: $tempPath"
-              exit 1
+            Write-Error "Temp folder not found: $tempPath"
+            exit 1
           }
 
-          $debFiles = Get-ChildItem -Path $tempPath -Filter *.deb -ErrorAction SilentlyContinue
-          
-          if ($debFiles) {
-              Write-Host "✅ Found $($debFiles.Count) .deb file(s)"
-              foreach ($file in $debFiles) {
-                  $sizeMB = [math]::Round($file.Length / 1MB, 2)
-                  Write-Host ("  Copying: {0} ({1} MB)" -f $file.Name, $sizeMB)
-                  Copy-Item -Path $file.FullName -Destination . -Force
-              }
-          } else {
-              Write-Error "No .deb files found in temp directory!"
-              Write-Host "Contents of $tempPath:"
-              Get-ChildItem -Path $tempPath
-              exit 1
+          $debFiles = Get-ChildItem -Path $tempPath -Filter *.deb
+          if (-not $debFiles) {
+            Write-Error "No .deb files found in temp folder!"
+            exit 1
           }
 
-          Write-Host ""
-          Write-Host "Files in workspace:"
-          Get-ChildItem -Filter *.deb | ForEach-Object {
-              $sizeMB = [math]::Round($_.Length / 1MB, 2)
-              Write-Host ("  - {0} ({1} MB)" -f $_.Name, $sizeMB)
-          }
+          Copy-Item $tempPath\*.deb . -Force
 
-      - name: Build Docker Image
+      - name: Build Docker image
         shell: powershell
         run: |
-          Write-Host "════════════════════════════════════════"
-          Write-Host "🐳 Building Docker Image"
-          Write-Host "════════════════════════════════════════"
-          Write-Host "Current directory: $(Get-Location)"
-
           docker build `
             -f ".github/docker/Dockerfile.octo-test" `
             -t octo-test:latest `
             .
 
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Docker build failed!"
-              exit 1
-          }
-
-          Write-Host ""
-          Write-Host "✅ Docker Image built successfully!"
-          Write-Host ""
-          docker images octo-test:latest --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}`t{{.CreatedAt}}"
-
-      - name: Run Smoketest in Docker
+      - name: Run smoketest inside container
         shell: powershell
         run: |
-          Write-Host "════════════════════════════════════════"
-          Write-Host "🧪 Running Smoketest in Docker"
-          Write-Host "════════════════════════════════════════"
-
-          docker run --rm octo-test:latest
-
-          if ($LASTEXITCODE -eq 0) {
-              Write-Host ""
-              Write-Host "✅ Smoketest PASSED!"
-              Write-Host "════════════════════════════════════════"
-          } else {
-              Write-Error "❌ Smoketest FAILED!"
-              exit 1
-          }
-
-      - name: Cleanup .deb files
-        if: always()
-        shell: powershell
-        run: |
-          Write-Host "Cleaning up .deb files from workspace..."
-          Get-ChildItem -Filter *.deb -Force -ErrorAction Ignore | Remove-Item -Force
-          Write-Host "✅ Cleanup complete"
+          docker run --rm octo-test:latest /octo/tests/smoketest.sh
