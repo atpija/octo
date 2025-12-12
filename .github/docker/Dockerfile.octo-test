@@ -18,7 +18,6 @@ COPY temp/*.deb /tmp/
 RUN dpkg -i /tmp/*.deb || apt-get -f install -y && \
     rm -f /tmp/*.deb
 
-
 # Erstelle ein Startup-Skript
 RUN mkdir -p /app
 RUN cat > /app/entrypoint.sh << 'ENTRYPOINT_EOF'

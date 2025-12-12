@@ -44,13 +44,10 @@ jobs:
       image_name: "octo-test"
       dockerfile: ".github/docker/Dockerfile.octo-test"
 
-
   run-smoketest:
     name: Run Smoketest inside Docker
     needs: build-docker
-    steps:
-      - name: Run smoketest
-        shell: powershell
-        run: |
-          cd test
-          octo run smoketest.sh
+    shell: powershell
+    run: |
+      cd test
+      octo run smoketest.sh
