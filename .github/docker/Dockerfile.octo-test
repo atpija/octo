@@ -11,13 +11,13 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip setuptools wheel && \
     pip install pytest
 
-# Kopiere alle .deb Dateien aus docker_debs/
-COPY docker_debs/*.deb /tmp/
+# Kopiere alle .deb Dateien
+COPY temp/*.deb /tmp/
 
-# Installiere alle .deb Dateien
-RUN cd /tmp && \
-    find . -name "*.deb" -exec apt-get install -y {} \; && \
+# Installiere alle .deb Dateien sicher
+RUN dpkg -i /tmp/*.deb || apt-get -f install -y && \
     rm -f /tmp/*.deb
+
 
 # Erstelle ein Startup-Skript
 RUN mkdir -p /app

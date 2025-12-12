@@ -4,39 +4,52 @@ on:
   workflow_dispatch:
 
 jobs:
-  smoketest:
+  copy-debs:
+    name: Copy .deb files
     runs-on: [self-hosted, windows, x64, octo]
+
+    outputs:
+      debs-present: ${{ steps.check.outputs.found }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy .deb files from temp
+      - id: check
+        name: Copy .deb files from temp
         shell: powershell
         run: |
-          $tempPath = "${{ runner.workspace }}/temp"
-          if (-not (Test-Path $tempPath)) {
-            Write-Error "Temp folder not found: $tempPath"
+          $temp = "${{ runner.workspace }}/temp"
+          if (-not (Test-Path $temp)) {
+            Write-Error "Temp folder not found: $temp"
             exit 1
           }
 
-          $debFiles = Get-ChildItem -Path $tempPath -Filter *.deb
-          if (-not $debFiles) {
-            Write-Error "No .deb files found in temp folder!"
+          $files = Get-ChildItem -Path $temp -Filter *.deb
+          if (-not $files) {
+            Write-Error "No .deb files found in temp!"
             exit 1
           }
 
-          Copy-Item $tempPath\*.deb . -Force
+          Copy-Item $temp\*.deb . -Force
 
-      - name: Build Docker image
-        shell: powershell
-        run: |
-          docker build `
-            -f ".github/docker/Dockerfile.octo-test" `
-            -t octo-test:latest `
-            .
+          echo "found=true" >> $env:GITHUB_OUTPUT
 
-      - name: Run smoketest inside container
+
+  build-docker:
+    name: Build Docker image (reused workflow)
+    needs: copy-debs
+    uses: ./.github/workflows/build_docker.yml
+    with:
+      image_name: "octo-test"
+      dockerfile: ".github/docker/Dockerfile.octo-test"
+
+
+  run-smoketest:
+    name: Run Smoketest inside Docker
+    needs: build-docker
+    steps:
+      - name: Run smoketest
         shell: powershell
         run: |
           cd test
