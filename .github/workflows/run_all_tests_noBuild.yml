@@ -40,5 +40,4 @@ jobs:
         shell: powershell
         run: |
           cd test
-          chmod +x smoketest.sh
           octo run smoketest.sh
