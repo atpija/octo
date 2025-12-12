@@ -204,3 +204,17 @@ jobs:
     uses: ./.github/workflows/run_all_tests_linux.yml
     needs: build-and-test-docker
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: [self-hosted, windows, x64, octo]
+    needs: [build-windows, build-linux, build-and-test-docker, run-smoketest]
+    if: always()
+
+    steps:
+      - name: Delete .deb files
+        shell: powershell
+        run: |
+          Write-Host "Cleaning up .deb files..."
+          Get-ChildItem -Filter *.deb -Force -ErrorAction Ignore | Remove-Item -Force
+          Write-Host "✅ Cleanup complete"
