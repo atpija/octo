@@ -47,7 +47,12 @@ jobs:
   run-smoketest:
     name: Run Smoketest inside Docker
     needs: build-docker
-    shell: powershell
-    run: |
-      cd test
-      octo run smoketest.sh
+    runs-on: [self-hosted, windows, x64, octo]
+
+    steps:
+      - name: Run smoketest inside Docker
+        shell: powershell
+        run: |
+          cd test 
+          octo run smoketest.sh
+
