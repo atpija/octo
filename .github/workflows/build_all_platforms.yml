@@ -189,3 +189,18 @@ jobs:
             server_build.log
             runner_build.log
           retention-days: 30
+
+  build-and-test-docker:
+    name: Build Docker Image & Run Smoketest
+    uses: ./.github/workflows/build_docker.yml
+    needs: build-linux
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    with:
+      image_name: 'octo-test'
+      dockerfile: '.github/docker/Dockerfile.octo-test'
+
+  run-smoketest:
+    name: Run Smoketest
+    uses: ./.github/workflows/run_all_tests_linux.yml
+    needs: build-and-test-docker
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
