@@ -31,32 +31,82 @@ jobs:
     runs-on: [self-hosted, windows, x64, octo]
 
     steps:
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------------
+      # Download Linux build artifacts (.deb)
+      # ------------------------------------------------------------
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: octo-linux
+          path: artifacts
+
+      # ------------------------------------------------------------
+      # Extract .deb files into temp/ (Docker build context)
+      # ------------------------------------------------------------
+      - name: Extract deb files
+        shell: powershell
+        run: |
+          Write-Host "📦 Extracting Linux artifacts..."
+
+          if (-not (Test-Path "artifacts/octo-linux.zip")) {
+            Write-Error "❌ octo-linux.zip not found!"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path temp | Out-Null
+          Expand-Archive artifacts/octo-linux.zip -DestinationPath temp -Force
+
+          Write-Host "✅ Extracted .deb files:"
+          Get-ChildItem temp
+
+          if (-not (Get-ChildItem temp -Filter *.deb)) {
+            Write-Error "❌ No .deb files found after extraction!"
+            exit 1
+          }
+
+      # ------------------------------------------------------------
+      # Debug: show Docker build context (optional but recommended)
+      # ------------------------------------------------------------
+      - name: Debug Docker build context
+        shell: powershell
+        run: |
+          Write-Host "📂 Docker build context:"
+          Get-ChildItem -Recurse
+
+      # ------------------------------------------------------------
+      # Build Docker Image
+      # ------------------------------------------------------------
       - name: Build Docker Image
         shell: powershell
         run: |
           Write-Host "════════════════════════════════════════"
-          Write-Host "🐳 Baue Docker Image"
+          Write-Host "🐳 Building Docker Image"
           Write-Host "════════════════════════════════════════"
           Write-Host "Image Name:  ${{ inputs.image_name }}"
           Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
           Write-Host "════════════════════════════════════════"
-          
+
           docker build `
             -f "${{ inputs.dockerfile }}" `
             -t "${{ inputs.image_name }}" `
             .
-          
+
           Write-Host ""
-          Write-Host "✅ Docker Image erfolgreich gebaut: ${{ inputs.image_name }}"
+          Write-Host "✅ Docker Image built successfully: ${{ inputs.image_name }}"
           Write-Host ""
-          Write-Host "Image Informationen:"
           docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
 
+      # ------------------------------------------------------------
+      # Smoke Test
+      # ------------------------------------------------------------
       - name: Test Docker Image
         shell: powershell
         run: |
-          Write-Host "🧪 Teste Docker Image..."
+          Write-Host "🧪 Running Docker smoke test..."
           docker run --rm ${{ inputs.image_name }} echo "✅ Image funktioniert!"
