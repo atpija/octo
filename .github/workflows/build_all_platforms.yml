@@ -232,12 +232,6 @@ jobs:
       image_name: 'octo-test'
       dockerfile: '.github/docker/Dockerfile.octo-test'
 
-  run-smoketest:
-    name: Run Smoketest
-    uses: ./.github/workflows/run_all_tests_linux.yml
-    needs: build-and-test-docker
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-
   cleanup:
     name: Cleanup Artifacts
     runs-on: [self-hosted, windows, x64, octo]

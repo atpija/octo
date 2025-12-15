@@ -2,24 +2,43 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# ------------------------------------------------------------
+# System Dependencies
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    curl wget git python3 python3-pip python3-venv ca-certificates \
+    curl \
+    wget \
+    git \
+    ca-certificates \
     docker.io \
+    python3 \
+    python3-venv \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Installiere Python Test und Development Dependencies
+# ------------------------------------------------------------
+# Python Virtual Environment (PEP 668 compliant)
+# ------------------------------------------------------------
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade tooling + install test deps inside venv
 RUN pip install --upgrade pip setuptools wheel && \
     pip install pytest
 
-# Kopiere alle .deb Dateien
+# ------------------------------------------------------------
+# Install Octo .deb packages
+# ------------------------------------------------------------
 COPY temp/*.deb /tmp/
 
-# Installiere alle .deb Dateien sicher
 RUN dpkg -i /tmp/*.deb || apt-get -f install -y && \
     rm -f /tmp/*.deb
 
-# Erstelle ein Startup-Skript
+# ------------------------------------------------------------
+# Entrypoint
+# ------------------------------------------------------------
 RUN mkdir -p /app
+
 RUN cat > /app/entrypoint.sh << 'ENTRYPOINT_EOF'
 #!/bin/bash
 set -e
