@@ -88,6 +88,8 @@ jobs:
           Write-Host "════════════════════════════════════════"
 
           docker build `
+            --no-cache `
+            --pull `
             -f "${{ inputs.dockerfile }}" `
             -t "${{ inputs.image_name }}" `
             .
