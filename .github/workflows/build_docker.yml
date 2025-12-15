@@ -47,7 +47,7 @@ jobs:
         run: |
           Write-Host "Using local cache path: $env:CACHE_ROOT"
           if (-not (Test-Path $env:CACHE_ROOT)) {
-            Write-Error "❌ Local runner cache not found: $env:CACHE_ROOT"
+            Write-Error "Local runner cache not found: $env:CACHE_ROOT"
             exit 1
           }
 
@@ -61,7 +61,7 @@ jobs:
           Get-ChildItem temp
 
           if (-not (Get-ChildItem temp -Filter *.deb -ErrorAction SilentlyContinue)) {
-            Write-Error "❌ No .deb files available in temp for Docker build!"
+            Write-Error "No .deb files available in temp for Docker build!"
             exit 1
           }
 
@@ -71,7 +71,7 @@ jobs:
       - name: Debug Docker build context
         shell: powershell
         run: |
-          Write-Host "📂 Docker build context:"
+          Write-Host "Docker build context:"
           Get-ChildItem -Recurse
 
       # ------------------------------------------------------------
@@ -81,7 +81,7 @@ jobs:
         shell: powershell
         run: |
           Write-Host "════════════════════════════════════════"
-          Write-Host "🐳 Building Docker Image"
+          Write-Host "Building Docker Image"
           Write-Host "════════════════════════════════════════"
           Write-Host "Image Name:  ${{ inputs.image_name }}"
           Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
@@ -93,7 +93,7 @@ jobs:
             .
 
           Write-Host ""
-          Write-Host "✅ Docker Image built successfully: ${{ inputs.image_name }}"
+          Write-Host "Docker Image built successfully: ${{ inputs.image_name }}"
           Write-Host ""
           docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
 
@@ -103,5 +103,5 @@ jobs:
       - name: Test Docker Image
         shell: powershell
         run: |
-          Write-Host "🧪 Running Docker smoke test..."
-          docker run --rm ${{ inputs.image_name }} echo "✅ Image funktioniert!"
+          Write-Host "Running Docker smoke test..."
+          docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"

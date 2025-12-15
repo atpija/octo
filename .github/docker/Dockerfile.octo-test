@@ -24,16 +24,16 @@ RUN cat > /app/entrypoint.sh << 'ENTRYPOINT_EOF'
 #!/bin/bash
 set -e
 
-echo "🔐 Adding demo token to server..."
+echo "Adding demo token to server..."
 octo-server token-add demo-token
 
-echo "🚀 Starting Octo Server..."
+echo "Starting Octo Server..."
 octo-server server &
 SERVER_PID=$!
 
 sleep 2
 
-echo "🏃 Starting Octo Runner with demo token..."
+echo "Starting Octo Runner with demo token..."
 octo-runner --token demo-token &
 RUNNER_PID=$!
 
