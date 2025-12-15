@@ -107,12 +107,18 @@ jobs:
         run: |
           Write-Host "Running Docker smoke test..."
           docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"
+          docker stop $(docker ps -aqf "ancestor=${{ inputs.image_name }}") | Out-Null
 
-      - name: Run Smoketest
+  Run-smoketest:
+    name: Run Smoketest
+    runs-on: [self-hosted, windows, x64, octo]
+    needs: build-docker
+    steps:
+      - name: Smoketest Docker Image
         shell: powershell
         run: |
           octo login --token demo-token --server http://127.0.0.1:5000
           octo config --docker ${{ inputs.image_name }}
           cd test
-          chmod +x smoketest.sh
-          octo run smoketest.sh
+              chmod +x smoketest.sh
+              octo run smoketest.sh
