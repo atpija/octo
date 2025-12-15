@@ -107,6 +107,10 @@ jobs:
         run: |
           Write-Host "Running Docker smoke test..."
           docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"
+
+      - name: Run Smoketest
+        shell: powershell
+        run: |
           octo login --token demo-token --server http://127.0.0.1:5000
           octo config --docker ${{ inputs.image_name }}
           cd test
