@@ -235,7 +235,7 @@ jobs:
   cleanup:
     name: Cleanup Artifacts
     runs-on: [self-hosted, windows, x64, octo]
-    needs: [build-windows, build-linux, build-and-test-docker, run-smoketest]
+    needs: [build-windows, build-linux, build-and-test-docker]
     if: always()
     env:
       CACHE_BASE: C:\octo\runner-cache\linux
