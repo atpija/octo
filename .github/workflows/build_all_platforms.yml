@@ -97,12 +97,15 @@ jobs:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers (parallel with Octo)
     runs-on: [self-hosted, windows, x64, octo]
+    # Stable, shared cache path: repository + ref (branch/tag)
+    env:
+      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clean old artifacts
+      - name: Clean old workspace artifacts
         shell: powershell
         run: |
           if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
@@ -144,7 +147,6 @@ jobs:
           Write-Host "Parallel tasks started, waiting for completion..."
           $jobs | Wait-Process
           Write-Host "All builds finished!"
-
 
       - name: Show Octo output logs
         shell: powershell
@@ -190,13 +192,26 @@ jobs:
 
           Write-Host "Created octo-linux.zip successfully."
 
+      - name: Store .deb files in local runner cache
+        shell: powershell
+        run: |
+          Write-Host "Storing .deb files in local runner cache: $env:CACHE_ROOT"
+          New-Item -ItemType Directory -Force -Path $env:CACHE_ROOT | Out-Null
 
-      - name: Upload Linux ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: octo-linux
-          path: octo-linux.zip
-          retention-days: 30
+          $debFiles = Get-ChildItem docker_debs -Filter *.deb -ErrorAction SilentlyContinue
+          if (-not $debFiles) {
+            Write-Error "No .deb files found in docker_debs to copy to cache!"
+            exit 1
+          }
+
+          foreach ($f in $debFiles) {
+            Copy-Item $f.FullName $env:CACHE_ROOT -Force
+          }
+
+          Write-Host "Cached files:"
+          Get-ChildItem $env:CACHE_ROOT
+
+      # Removed upload-artifact steps for linux to avoid GitHub storage quota usage
 
       - name: Upload build logs
         uses: actions/upload-artifact@v4
@@ -206,7 +221,7 @@ jobs:
             client_build.log
             server_build.log
             runner_build.log
-          retention-days: 30
+          retention-days: 7
 
   build-and-test-docker:
     name: Build Docker Image & Run Smoketest
@@ -228,11 +243,30 @@ jobs:
     runs-on: [self-hosted, windows, x64, octo]
     needs: [build-windows, build-linux, build-and-test-docker, run-smoketest]
     if: always()
+    env:
+      CACHE_BASE: C:\octo\runner-cache\linux
 
     steps:
-      - name: Delete .deb files
+      - name: Delete workspace .deb files
         shell: powershell
         run: |
-          Write-Host "Cleaning up .deb files..."
+          Write-Host "Cleaning up workspace .deb files..."
           Get-ChildItem -Filter *.deb -Force -ErrorAction Ignore | Remove-Item -Force
-          Write-Host "✅ Cleanup complete"
+          Write-Host "✅ Workspace cleanup complete"
+
+      - name: Cleanup local runner cache older than 14 days
+        shell: powershell
+        run: |
+          $cacheBase = "${{ env.CACHE_BASE }}"
+          if (-not (Test-Path $cacheBase)) {
+            Write-Host "No runner-cache present at $cacheBase"
+            exit 0
+          }
+          Write-Host "Cleaning cache directories older than 14 days under $cacheBase"
+          Get-ChildItem $cacheBase -Directory -Force |
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-14) } |
+            ForEach-Object {
+              Write-Host "Removing cache: $($_.FullName)"
+              Remove-Item $_.FullName -Recurse -Force
+            }
+          Write-Host "✅ Cache cleanup complete"

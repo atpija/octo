@@ -29,6 +29,8 @@ jobs:
   build-docker:
     name: Build Docker Image
     runs-on: [self-hosted, windows, x64, octo]
+    env:
+      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
 
     steps:
       # ------------------------------------------------------------
@@ -38,35 +40,28 @@ jobs:
         uses: actions/checkout@v4
 
       # ------------------------------------------------------------
-      # Download Linux build artifacts (.deb)
+      # Prepare Docker build context from local cache
       # ------------------------------------------------------------
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: octo-linux
-          path: artifacts
-
-      # ------------------------------------------------------------
-      # Extract .deb files into temp/ (Docker build context)
-      # ------------------------------------------------------------
-      - name: Extract deb files
+      - name: Prepare Docker build context from local cache
         shell: powershell
         run: |
-          Write-Host "📦 Extracting Linux artifacts..."
-
-          if (-not (Test-Path "artifacts/octo-linux.zip")) {
-            Write-Error "❌ octo-linux.zip not found!"
+          Write-Host "Using local cache path: $env:CACHE_ROOT"
+          if (-not (Test-Path $env:CACHE_ROOT)) {
+            Write-Error "❌ Local runner cache not found: $env:CACHE_ROOT"
             exit 1
           }
 
+          # Create temp folder as Docker build context
           New-Item -ItemType Directory -Force -Path temp | Out-Null
-          Expand-Archive artifacts/octo-linux.zip -DestinationPath temp -Force
 
-          Write-Host "✅ Extracted .deb files:"
+          Write-Host "Copying .deb files from cache to temp..."
+          Copy-Item "$env:CACHE_ROOT\*.deb" temp -Force -ErrorAction SilentlyContinue
+
+          Write-Host "Contents of temp:"
           Get-ChildItem temp
 
-          if (-not (Get-ChildItem temp -Filter *.deb)) {
-            Write-Error "❌ No .deb files found after extraction!"
+          if (-not (Get-ChildItem temp -Filter *.deb -ErrorAction SilentlyContinue)) {
+            Write-Error "❌ No .deb files available in temp for Docker build!"
             exit 1
           }
 
