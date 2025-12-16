@@ -102,12 +102,12 @@ jobs:
       # ------------------------------------------------------------
       # Smoke Test
       # ------------------------------------------------------------
-      - name: Test Docker Image
-        shell: powershell
-        run: |
-          Write-Host "Running Docker smoke test..."
-          docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"
-          docker stop $(docker ps -aqf "ancestor=${{ inputs.image_name }}") | Out-Null
+     # - name: Test Docker Image
+      #  shell: powershell
+       # run: |
+        #  Write-Host "Running Docker smoke test..."
+         # docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"
+          #docker stop $(docker ps -aqf "ancestor=${{ inputs.image_name }}") | Out-Null
 
   Run-smoketest:
     name: Run Smoketest
