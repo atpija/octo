@@ -120,5 +120,4 @@ jobs:
           octo login --token demo-token --server http://127.0.0.1:5000
           octo config --docker ${{ inputs.image_name }}
           cd test
-              chmod +x smoketest.sh
               octo run smoketest.sh
