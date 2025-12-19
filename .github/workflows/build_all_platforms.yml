@@ -155,6 +155,7 @@ jobs:
         shell: powershell
         run: |
           octo config --docker octo-test-base
+          cd test
           octo run smoketest.py
 
 # ============================================================
