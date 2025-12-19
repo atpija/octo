@@ -123,7 +123,12 @@ jobs:
       - name: Ensure docker network exists
         shell: powershell
         run: |
-          docker network create octo-net 2>$null || Write-Host "Network exists"
+          docker network inspect octo-net *> $null
+          if ($LASTEXITCODE -ne 0) {
+              docker network create octo-net
+          } else {
+              Write-Host "Network octo-net already exists"
+          }
 
       - name: Start Infra container
         shell: powershell
