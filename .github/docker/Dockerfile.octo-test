@@ -6,59 +6,33 @@ ENV DEBIAN_FRONTEND=noninteractive
 # System Dependencies
 # ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    git \
-    ca-certificates \
-    docker.io \
     python3 \
-    python3-venv \
     python3-pip \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
-# Python Virtual Environment (PEP 668 compliant)
+# Python test deps
 # ------------------------------------------------------------
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Upgrade tooling + install test deps inside venv
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install pytest
+RUN pip install pytest
 
 # ------------------------------------------------------------
-# Install Octo .deb packages
+# Install Octo CLIENT only
 # ------------------------------------------------------------
-COPY temp/*.deb /tmp/
+COPY temp/octo-client*.deb /tmp/
 
-RUN dpkg -i /tmp/*.deb || apt-get -f install -y && \
+RUN dpkg -i /tmp/octo-client*.deb || \
+    apt-get -f install -y && \
     rm -f /tmp/*.deb
 
 # ------------------------------------------------------------
-# Entrypoint
+# Workspace
 # ------------------------------------------------------------
-RUN mkdir -p /app
+WORKDIR /workspace
 
-RUN cat > /app/entrypoint.sh << 'ENTRYPOINT_EOF'
-#!/bin/bash
-set -e
-
-echo "Adding demo token to server..."
-octo-server token-add demo-token
-
-echo "Starting Octo Server..."
-octo-server server &
-SERVER_PID=$!
-
-sleep 2
-
-echo "Starting Octo Runner with demo token..."
-octo-runner --token demo-token &
-RUNNER_PID=$!
-
-wait
-ENTRYPOINT_EOF
-
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/app/entrypoint.sh"]
+# ------------------------------------------------------------
+# Default command = pytest
+# (octo run überschreibt das automatisch)
+# ------------------------------------------------------------
+ENTRYPOINT ["pytest", "-s"]

@@ -1,34 +1,25 @@
-name: Build Docker Image
+name: Build Docker Images
 
 on:
   workflow_dispatch:
-    inputs:
-      image_name:
-        description: 'Docker Image Name'
-        required: false
-        default: 'octo-test'
-      dockerfile:
-        description: 'Dockerfile Path'
-        required: false
-        default: '.github/docker/Dockerfile.octo-test'
-
   workflow_call:
-    inputs:
-      image_name:
-        description: 'Docker Octo Test Image'
-        required: false
-        type: string
-        default: 'octo-test'
-      dockerfile:
-        description: 'Dockerfile Path'
-        required: false
-        type: string
-        default: '.github/docker/Dockerfile.octo-test'
 
 jobs:
   build-docker:
-    name: Build Docker Image
+    name: Build Docker Images (${{ matrix.name }})
     runs-on: [self-hosted, windows, x64, octo]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: infra
+            image: octo-infra
+            dockerfile: .github/docker/Dockerfile.infra
+          - name: test
+            image: octo-test-base
+            dockerfile: .github/docker/Dockerfile.test
+
     env:
       CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
 
@@ -36,88 +27,36 @@ jobs:
       # ------------------------------------------------------------
       # Checkout
       # ------------------------------------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       # ------------------------------------------------------------
-      # Prepare Docker build context from local cache
+      # Prepare Docker build context
       # ------------------------------------------------------------
-      - name: Prepare Docker build context from local cache
+      - name: Prepare Docker build context
         shell: powershell
         run: |
-          Write-Host "Using local cache path: $env:CACHE_ROOT"
           if (-not (Test-Path $env:CACHE_ROOT)) {
-            Write-Error "Local runner cache not found: $env:CACHE_ROOT"
+            Write-Error "Cache not found: $env:CACHE_ROOT"
             exit 1
           }
 
-          # Create temp folder as Docker build context
           New-Item -ItemType Directory -Force -Path temp | Out-Null
-
-          Write-Host "Copying .deb files from cache to temp..."
           Copy-Item "$env:CACHE_ROOT\*.deb" temp -Force -ErrorAction SilentlyContinue
 
-          Write-Host "Contents of temp:"
-          Get-ChildItem temp
-
-          if (-not (Get-ChildItem temp -Filter *.deb -ErrorAction SilentlyContinue)) {
-            Write-Error "No .deb files available in temp for Docker build!"
+          if (-not (Get-ChildItem temp -Filter *.deb)) {
+            Write-Error "No .deb files found"
             exit 1
           }
 
       # ------------------------------------------------------------
-      # Debug: show Docker build context (optional but recommended)
+      # Build Image
       # ------------------------------------------------------------
-      - name: Debug Docker build context
+      - name: Build ${{ matrix.image }}
         shell: powershell
         run: |
-          Write-Host "Docker build context:"
-          Get-ChildItem -Recurse
-
-      # ------------------------------------------------------------
-      # Build Docker Image
-      # ------------------------------------------------------------
-      - name: Build Docker Image
-        shell: powershell
-        run: |
-          Write-Host "════════════════════════════════════════"
-          Write-Host "Building Docker Image"
-          Write-Host "════════════════════════════════════════"
-          Write-Host "Image Name:  ${{ inputs.image_name }}"
-          Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
-          Write-Host "════════════════════════════════════════"
-
           docker build `
             --no-cache `
             --pull `
-            -f "${{ inputs.dockerfile }}" `
-            -t "${{ inputs.image_name }}" `
+            -f "${{ matrix.dockerfile }}" `
+            -t "${{ matrix.image }}" `
             .
-
-          Write-Host ""
-          Write-Host "Docker Image built successfully: ${{ inputs.image_name }}"
-          Write-Host ""
-          docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
-
-      # ------------------------------------------------------------
-      # Smoke Test
-      # ------------------------------------------------------------
-     # - name: Test Docker Image
-      #  shell: powershell
-       # run: |
-        #  Write-Host "Running Docker smoke test..."
-         # docker run --rm ${{ inputs.image_name }} echo "Image funktioniert!"
-          #docker stop $(docker ps -aqf "ancestor=${{ inputs.image_name }}") | Out-Null
-
-  Run-smoketest:
-    name: Run Smoketest
-    runs-on: [self-hosted, windows, x64, octo]
-    needs: build-docker
-    steps:
-      - name: Smoketest Docker Image
-        shell: powershell
-        run: |
-          octo login --token demo-token --server http://127.0.0.1:5000
-          octo config --docker ${{ inputs.image_name }}
-          cd test
-              octo run smoketest.sh
