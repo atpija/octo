@@ -168,3 +168,8 @@ def test_run_with_default_docker(tmp_path):
     code, output = run_cmd(["octo", "run", str(f)], timeout=30)
     assert code == 0
     assert "default docker works" in output
+
+if __name__ == "__main__":
+    import sys
+    import pytest
+    sys.exit(pytest.main([__file__, "-v", "-s"]))

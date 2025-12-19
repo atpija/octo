@@ -44,8 +44,3 @@ RUN dpkg -i /tmp/octo-client*.deb || \
 # ------------------------------------------------------------
 WORKDIR /workspace
 
-# ------------------------------------------------------------
-# Default command = pytest
-# (octo run überschreibt das automatisch)
-# ------------------------------------------------------------
-CMD ["python", "-m", "pytest", "-v"]

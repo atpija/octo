@@ -156,44 +156,7 @@ jobs:
         run: |
           octo config --docker octo-test-base
           cd test
-          
-          Write-Host "================================================" -ForegroundColor Cyan
-          Write-Host "🧪 Running Smoketests..." -ForegroundColor Cyan
-          Write-Host "================================================" -ForegroundColor Cyan
-          
-          # Octo run ausführen und Output capturen
-          $output = octo run smoketest.py 2>&1
-          
-          # Output anzeigen (mit Farben wenn möglich)
-          $output | ForEach-Object {
-            $line = $_.ToString()
-            if ($line -match "PASSED") {
-              Write-Host $line -ForegroundColor Green
-            }
-            elseif ($line -match "FAILED|ERROR") {
-              Write-Host $line -ForegroundColor Red
-            }
-            elseif ($line -match "✅") {
-              Write-Host $line -ForegroundColor Green
-            }
-            elseif ($line -match "❌") {
-              Write-Host $line -ForegroundColor Red
-            }
-            else {
-              Write-Host $line
-            }
-          }
-          
-          Write-Host ""
-          Write-Host "================================================" -ForegroundColor Cyan
-          
-          # Exit code prüfen
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Smoketest failed!" -ForegroundColor Red
-            exit $LASTEXITCODE
-          }
-          
-          Write-Host "✅ Smoketest passed!" -ForegroundColor Green
+          octo run smoketest.py
 
 # ============================================================
 # CLEANUP
