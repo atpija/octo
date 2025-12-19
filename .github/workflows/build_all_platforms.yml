@@ -123,7 +123,12 @@ jobs:
       - name: Start Infra container
         shell: powershell
         run: |
-          docker rm -f octo-infra 2>$null
+          $container = docker ps -aqf "name=octo-infra"
+          if ($container) {
+              docker rm -f octo-infra
+          } else {
+              Write-Host "Container octo-infra existiert nicht, überspringe löschen."
+          }
           docker run -d `
             --name octo-infra `
             -p 5000:5000 `
