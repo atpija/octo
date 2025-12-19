@@ -15,10 +15,10 @@ jobs:
         include:
           - name: infra
             image: octo-infra
-            dockerfile: .github/docker/Dockerfile.infra
+            dockerfile: .github/docker/Dockerfile.octo-infra
           - name: test
             image: octo-test-base
-            dockerfile: .github/docker/Dockerfile.test
+            dockerfile: .github/docker/Dockerfile.octo-test
 
     env:
       CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
