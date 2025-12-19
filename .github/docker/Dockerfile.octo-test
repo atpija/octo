@@ -48,4 +48,4 @@ WORKDIR /workspace
 # Default command = pytest
 # (octo run überschreibt das automatisch)
 # ------------------------------------------------------------
-ENTRYPOINT ["pytest", "-s"]
+CMD ["python", "-m", "pytest", "-v"]
