@@ -3,7 +3,7 @@ import subprocess
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
+SERVER_URL = os.environ.get("SERVER_URL", "http://octo-infra:5000")
 TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
 
 

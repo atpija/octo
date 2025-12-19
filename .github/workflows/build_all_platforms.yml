@@ -113,26 +113,29 @@ jobs:
 # ============================================================
 # START DOCKER INFRA (SERVER + RUNNER)
 # ============================================================
-  docker-infra-up:
-    name: Start Octo Infra (Docker)
-    runs-on: [self-hosted, windows, x64, octo]
-    needs: build-docker
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+docker-infra-up:
+  name: Start Octo Infra (Docker)
+  runs-on: [self-hosted, windows, x64, octo]
+  needs: build-docker
+  if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
 
-    steps:
-      - name: Start Infra container
-        shell: powershell
-        run: |
-          $container = docker ps -aqf "name=octo-infra"
-          if ($container) {
-              docker rm -f octo-infra
-          } else {
-              Write-Host "Container octo-infra existiert nicht, überspringe löschen."
-          }
-          docker run -d `
-            --name octo-infra `
-            -p 5000:5000 `
-            octo-infra
+  steps:
+    - name: Ensure docker network exists
+      shell: powershell
+      run: |
+        docker network create octo-net 2>$null || Write-Host "Network exists"
+
+    - name: Start Infra container
+      shell: powershell
+      run: |
+        docker rm -f octo-infra 2>$null
+
+        docker run -d `
+          --name octo-infra `
+          --network octo-net `
+          -p 5000:5000 `
+          octo-infra
+
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)

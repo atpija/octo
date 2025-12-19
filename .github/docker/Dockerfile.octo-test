@@ -44,3 +44,5 @@ RUN dpkg -i /tmp/octo-client*.deb || \
 # ------------------------------------------------------------
 WORKDIR /workspace
 
+ENV SERVER_URL=http://octo-infra:5000
+
