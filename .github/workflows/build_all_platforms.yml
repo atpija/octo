@@ -74,17 +74,32 @@ jobs:
 
           $jobs | Wait-Process
 
-      - name: Collect .deb files
+      - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
-          New-Item docker_debs -ItemType Directory -Force | Out-Null
-          Get-ChildItem -Recurse -Filter *.deb | Copy-Item -Destination docker_debs
+          Write-Host "Collecting .deb files..."
 
-      - name: Cache .deb files locally
-        shell: powershell
-        run: |
-          New-Item $env:CACHE_ROOT -ItemType Directory -Force | Out-Null
-          Copy-Item docker_debs\*.deb $env:CACHE_ROOT -Force
+          if (Test-Path docker_debs) {
+              Write-Host "Removing existing docker_debs directory"
+              Remove-Item docker_debs -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
+
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb |
+              Where-Object { $_.FullName -notmatch '\\docker_debs\\' }
+
+          if (-not $debFiles) {
+              Write-Error "No .deb files found!"
+              exit 1
+          }
+
+          foreach ($file in $debFiles) {
+              Copy-Item $file.FullName docker_debs -Force
+          }
+
+          Write-Host "Copied the following .deb files:"
+          Get-ChildItem docker_debs
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
