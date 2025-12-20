@@ -139,16 +139,16 @@ jobs:
         run: |
           $ErrorActionPreference = "SilentlyContinue"
 
-            $container = docker ps -aqf "name=^octo-infra$"
-            if ($container) {
-                docker rm -f octo-infra | Out-Null
-            }
+          $container = docker ps -aqf "name=^octo-infra$"
+          if ($container) {
+              docker rm -f octo-infra | Out-Null
+          }
 
-            docker run -d `
-              --name octo-infra `
-              --network octo-net `
-              -p 5000:5000 `
-              octo-infra
+          docker run -d `
+            --name octo-infra `
+            --network octo-net `
+            -p 5000:5000 `
+            octo-infra
 
 
 # ============================================================
