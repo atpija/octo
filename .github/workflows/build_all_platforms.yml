@@ -175,7 +175,7 @@ jobs:
           --network octo-net `
           -e SERVER_URL=http://octo-infra:5000 `
           -e SMOKE_TOKEN=demo-token `
-          octo-test-image `
+          octo-test-base `
           python -m pytest -v smoketest.py
 
 
