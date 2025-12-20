@@ -171,9 +171,13 @@ jobs:
       - name: Run pytest smoketest
         shell: powershell
         run: |
-          octo config --docker octo-test-base
-          cd test
-          octo run smoketest.py
+          docker run --rm `
+          --network octo-net `
+          -e SERVER_URL=http://octo-infra:5000 `
+          -e SMOKE_TOKEN=demo-token `
+          octo-test-image `
+          python -m pytest -v smoketest.py
+
 
 # ============================================================
 # CLEANUP
