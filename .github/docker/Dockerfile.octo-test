@@ -34,6 +34,7 @@ RUN pip install pytest
 # Install Octo CLIENT only
 # ------------------------------------------------------------
 COPY temp/octo-client*.deb /tmp/
+COPY test/smoketest.py /workspace/smoketest.py
 
 RUN dpkg -i /tmp/octo-client*.deb || \
     apt-get -f install -y && \
