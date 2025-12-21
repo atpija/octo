@@ -148,7 +148,7 @@ jobs:
             --name octo-infra `
             --network octo-net `
             -p 5000:5000 `
-            -v //./pipe/docker_engine:/var/run/docker.sock
+            -v //./pipe/docker_engine:/var/run/docker.sock `
             octo-infra
 
 

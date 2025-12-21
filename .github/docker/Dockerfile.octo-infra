@@ -24,8 +24,6 @@ RUN dpkg -i /tmp/octo-server*.deb /tmp/octo-runner*.deb || \
     apt-get -f install -y && \
     rm -f /tmp/*.deb
 
-RUN usermod -aG docker root
-
 # ------------------------------------------------------------
 # Entrypoint
 # ------------------------------------------------------------
