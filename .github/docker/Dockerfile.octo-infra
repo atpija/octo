@@ -15,6 +15,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
+# Ensure tmp exists and is writable
+# ------------------------------------------------------------
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
+# ------------------------------------------------------------
 # Install Octo SERVER + RUNNER only
 # ------------------------------------------------------------
 COPY temp/octo-server*.deb /tmp/

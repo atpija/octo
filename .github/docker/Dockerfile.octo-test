@@ -22,6 +22,12 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# ------------------------------------------------------------
+# Ensure tmp exists and is writable
+# ------------------------------------------------------------
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
+
 # Upgrade tooling + install test deps inside venv
 RUN pip install --upgrade pip setuptools wheel pytest
 
