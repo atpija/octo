@@ -1,6 +1,7 @@
 import os
 import subprocess
 import pytest
+import shutil
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -8,9 +9,15 @@ SERVER_URL = os.environ.get("SERVER_URL", "http://octo-infra:5000")
 TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
 
 
-def run_cmd(cmd, timeout=20):
+def run_cmd(cmd, timeout=20, cwd=None):
     """Hilfsfunktion um CLI-Kommandos auszuführen"""
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen(
+        cmd, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.STDOUT, 
+        text=True,
+        cwd=cwd
+    )
     try:
         outs, _ = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -27,6 +34,23 @@ def ensure_login():
     yield
 
 
+@pytest.fixture
+def test_project():
+    """Erstellt ein isoliertes Test-Projekt-Verzeichnis"""
+    import uuid
+    project_dir = Path(f"test_project_{uuid.uuid4().hex[:8]}")
+    project_dir.mkdir(exist_ok=True)
+    
+    original_cwd = os.getcwd()
+    
+    yield project_dir
+    
+    # Cleanup
+    os.chdir(original_cwd)
+    if project_dir.exists():
+        shutil.rmtree(project_dir)
+
+
 # ------------------------
 # Basis Smoke Tests
 # ------------------------
@@ -38,73 +62,67 @@ def test_login():
     assert "✅" in output or "success" in output.lower()
 
 
-def test_run_basic():
+def test_run_basic(test_project):
     """Client: octo run main.py"""
-    testfile = Path("test_main.py")
-    try:
-        testfile.write_text("print('hello from smoke test')")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())])
-        assert code == 0, f"Command failed: {output}"
-        assert "hello from smoke test" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
-
-
-def test_session_switch():
-    """Client: Session-Wechsel"""
-    file_a = Path("test_a.py")
-    file_b = Path("test_b.py")
+    testfile = test_project / "main.py"
+    testfile.write_text("print('hello from smoke test')")
     
-    try:
-        file_a.write_text("print('Runner A ok')")
-        code, output = run_cmd(["octo", "run", str(file_a.absolute())])
-        assert "Runner A ok" in output, f"Output was: {output}"
+    code, output = run_cmd(["octo", "run", "main.py"], cwd=test_project)
+    assert code == 0, f"Command failed: {output}"
+    assert "hello from smoke test" in output
 
-        # Neues Login simuliert zweiten Runner
-        code, output = run_cmd(["octo", "login", "--token", TOKEN, "--server", SERVER_URL])
-        assert code == 0
 
-        file_b.write_text("print('Runner B ok')")
-        code, output = run_cmd(["octo", "run", str(file_b.absolute())])
-        assert "Runner B ok" in output, f"Output was: {output}"
-    finally:
-        if file_a.exists():
-            file_a.unlink()
-        if file_b.exists():
-            file_b.unlink()
+def test_session_switch(test_project):
+    """Client: Session-Wechsel"""
+    file_a = test_project / "a.py"
+    file_a.write_text("print('Runner A ok')")
+    
+    code, output = run_cmd(["octo", "run", "a.py"], cwd=test_project)
+    assert "Runner A ok" in output, f"Output was: {output}"
+
+    # Neues Login simuliert zweiten Runner
+    code, output = run_cmd(["octo", "login", "--token", TOKEN, "--server", SERVER_URL])
+    assert code == 0
+
+    file_b = test_project / "b.py"
+    file_b.write_text("print('Runner B ok')")
+    
+    code, output = run_cmd(["octo", "run", "b.py"], cwd=test_project)
+    assert "Runner B ok" in output, f"Output was: {output}"
 
 
 # ------------------------
 # Erweiterte Tests
 # ------------------------
 
-def test_invalid_token():
+def test_invalid_token(test_project):
     """Client: ungültiger Token – Fehler erst bei run"""
     code, output = run_cmd(["octo", "login", "--token", "WRONG", "--server", SERVER_URL])
     assert code == 0  # Client speichert den Token einfach
     
-    testfile = Path("test_bad.py")
-    try:
-        testfile.write_text("print('unauthorized test')")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())])
-        assert code != 0
-        assert "Unauthorized" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
+    testfile = test_project / "bad.py"
+    testfile.write_text("print('unauthorized test')")
+    
+    code, output = run_cmd(["octo", "run", "bad.py"], cwd=test_project)
+    assert code != 0
+    assert "Unauthorized" in output
 
 
 def test_parallel_runs():
     """Client: Viele parallele Runs"""
     def run_one(i):
-        testfile = Path(f"test_task_{i}.py")
+        # Jeder Task bekommt sein eigenes Projekt-Verzeichnis
+        import uuid
+        project_dir = Path(f"test_parallel_{uuid.uuid4().hex[:8]}")
+        project_dir.mkdir(exist_ok=True)
+        
         try:
+            testfile = project_dir / "task.py"
             testfile.write_text(f"print('Task {i}')")
-            return run_cmd(["octo", "run", str(testfile.absolute())])[1]
+            return run_cmd(["octo", "run", "task.py"], cwd=project_dir)[1]
         finally:
-            if testfile.exists():
-                testfile.unlink()
+            if project_dir.exists():
+                shutil.rmtree(project_dir)
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         results = list(pool.map(run_one, range(10)))
@@ -113,69 +131,50 @@ def test_parallel_runs():
         assert f"Task {i}" in output
 
 
-def test_error_in_script():
+def test_error_in_script(test_project):
     """Client: Fehler im Code"""
-    testfile = Path("test_fail.py")
-    try:
-        testfile.write_text("1/0")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())])
-        # aktuell gibt dein Client evtl. immer 0 zurück → das wäre ein Bug
-        assert "ZeroDivisionError" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
-
-
-def test_large_output():
-    """Client: sehr viele Prints"""
-    testfile = Path("test_spam.py")
-    try:
-        testfile.write_text("for i in range(1000): print(f'line {i}')")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())], timeout=60)
-        assert code == 0
-        assert "line 999" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
-
-
-def test_long_running():
-    """Client: lange Runtime"""
-    testfile = Path("test_sleepy.py")
-    try:
-        testfile.write_text("import time; time.sleep(3); print('done')")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())], timeout=10)
-        assert code == 0
-        assert "done" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
-
-
-def test_many_files():
-    """Client: Projekt mit sehr vielen Files"""
-    test_dir = Path("test_many_files")
-    test_dir.mkdir(exist_ok=True)
+    testfile = test_project / "fail.py"
+    testfile.write_text("1/0")
     
-    try:
-        # 50 kleine Dateien anlegen
-        for i in range(50):
-            f = test_dir / f"file_{i}.py"
-            f.write_text(f"print('Hello from {i}')")
+    code, output = run_cmd(["octo", "run", "fail.py"], cwd=test_project)
+    # aktuell gibt dein Client evtl. immer 0 zurück → das wäre ein Bug
+    assert "ZeroDivisionError" in output
 
-        # Main File, das ein paar andere Files importiert
-        main = test_dir / "main.py"
-        main.write_text("import file_2; print('main running')")
 
-        code, output = run_cmd(["octo", "run", str(main.absolute())], timeout=60)
-        assert code == 0
-        assert "main running" in output
-    finally:
-        # Cleanup
-        if test_dir.exists():
-            for f in test_dir.glob("*.py"):
-                f.unlink()
-            test_dir.rmdir()
+def test_large_output(test_project):
+    """Client: sehr viele Prints"""
+    testfile = test_project / "spam.py"
+    testfile.write_text("for i in range(1000): print(f'line {i}')")
+    
+    code, output = run_cmd(["octo", "run", "spam.py"], timeout=60, cwd=test_project)
+    assert code == 0
+    assert "line 999" in output
+
+
+def test_long_running(test_project):
+    """Client: lange Runtime"""
+    testfile = test_project / "sleepy.py"
+    testfile.write_text("import time; time.sleep(3); print('done')")
+    
+    code, output = run_cmd(["octo", "run", "sleepy.py"], timeout=10, cwd=test_project)
+    assert code == 0
+    assert "done" in output
+
+
+def test_many_files(test_project):
+    """Client: Projekt mit sehr vielen Files"""
+    # 50 kleine Dateien anlegen
+    for i in range(50):
+        f = test_project / f"file_{i}.py"
+        f.write_text(f"print('Hello from {i}')")
+
+    # Main File, das ein paar andere Files importiert
+    main = test_project / "main.py"
+    main.write_text("import file_2; print('main running')")
+
+    code, output = run_cmd(["octo", "run", "main.py"], timeout=60, cwd=test_project)
+    assert code == 0
+    assert "main running" in output
 
 
 def test_config_show_and_set():
@@ -189,38 +188,32 @@ def test_config_show_and_set():
     assert "python:3.12" in output
 
 
-def test_run_with_custom_docker():
+def test_run_with_custom_docker(test_project):
     """Client: Script wird im gesetzten Docker-Image ausgeführt"""
     # Config auf spezielles Image setzen
     run_cmd(["octo", "config", "--docker", "python:3.12"])
 
-    testfile = Path("test_docker_test.py")
-    try:
-        testfile.write_text("import sys; print('python-version:', sys.version)")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())], timeout=30)
-        assert code == 0
-        assert "python-version:" in output
-        # wir checken nur grob auf "3.12", weil die genaue Minor-Version variieren kann
-        assert "3.12" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
+    testfile = test_project / "docker_test.py"
+    testfile.write_text("import sys; print('python-version:', sys.version)")
+    
+    code, output = run_cmd(["octo", "run", "docker_test.py"], timeout=30, cwd=test_project)
+    assert code == 0
+    assert "python-version:" in output
+    # wir checken nur grob auf "3.12", weil die genaue Minor-Version variieren kann
+    assert "3.12" in output
 
 
-def test_run_with_default_docker():
+def test_run_with_default_docker(test_project):
     """Client: Script läuft ohne explizite Config im Default-Image"""
     # Config zurücksetzen auf Default
     run_cmd(["octo", "config", "--docker", "python:3.11-slim"])
 
-    testfile = Path("test_default_docker.py")
-    try:
-        testfile.write_text("print('default docker works')")
-        code, output = run_cmd(["octo", "run", str(testfile.absolute())], timeout=30)
-        assert code == 0
-        assert "default docker works" in output
-    finally:
-        if testfile.exists():
-            testfile.unlink()
+    testfile = test_project / "default_docker.py"
+    testfile.write_text("print('default docker works')")
+    
+    code, output = run_cmd(["octo", "run", "default_docker.py"], timeout=30, cwd=test_project)
+    assert code == 0
+    assert "default docker works" in output
 
 
 if __name__ == "__main__":
