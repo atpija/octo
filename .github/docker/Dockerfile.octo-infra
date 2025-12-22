@@ -53,4 +53,9 @@ RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 5000
 
+# ------------------------------------------------------------
+# Workspace
+# ------------------------------------------------------------
+WORKDIR /workspace
+
 ENTRYPOINT ["/app/entrypoint.sh"]
