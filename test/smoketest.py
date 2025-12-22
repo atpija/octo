@@ -67,7 +67,26 @@ def test_run_basic(test_project):
     testfile = test_project / "main.py"
     testfile.write_text("print('hello from smoke test')")
     
+    # Debug Output
+    print(f"\n{'='*60}")
+    print(f"🔍 DEBUG INFO:")
+    print(f"📁 Test project dir: {test_project.absolute()}")
+    print(f"📄 Test file: {testfile.absolute()}")
+    print(f"✅ File exists: {testfile.exists()}")
+    print(f"📝 File content: {testfile.read_text()}")
+    print(f"📂 Files in project dir: {list(test_project.iterdir())}")
+    print(f"🏃 Running from CWD: {os.getcwd()}")
+    print(f"🏃 Command CWD: {test_project.absolute()}")
+    print(f"{'='*60}\n")
+    
     code, output = run_cmd(["octo", "run", "main.py"], cwd=test_project)
+    
+    print(f"\n{'='*60}")
+    print(f"📤 COMMAND OUTPUT:")
+    print(output)
+    print(f"🔢 Return code: {code}")
+    print(f"{'='*60}\n")
+    
     assert code == 0, f"Command failed: {output}"
     assert "hello from smoke test" in output
 
