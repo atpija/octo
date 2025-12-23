@@ -3,7 +3,7 @@ import subprocess
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://octo-infra:5000")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5000")
 TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
 
 
@@ -168,3 +168,8 @@ def test_run_with_default_docker(tmp_path):
     code, output = run_cmd(["octo", "run", str(f)], timeout=30)
     assert code == 0
     assert "default docker works" in output
+
+
+if __name__ == "__main__":
+    import sys
+    import pytest

@@ -111,46 +111,24 @@ jobs:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
 
 # ============================================================
-# START DOCKER INFRA (SERVER + RUNNER)
+# SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
 # ============================================================
-  docker-infra-up:
-    name: Start Octo Infra (Docker)
-    runs-on: [self-hosted, windows, x64, octo]
+  wsl-infra-up:
+    name: Install Octo Server + Runner in WSL
     needs: build-docker
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    runs-on: [self-hosted, windows, x64, octo]
 
     steps:
-      - name: Ensure docker network exists
+      - uses: actions/checkout@v4
+
+      - name: Install Octo in WSL
         shell: powershell
         run: |
-          $ErrorActionPreference = "SilentlyContinue"
-
-          docker network inspect octo-net | Out-Null
-
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "Creating docker network octo-net"
-              docker network create octo-net
-          } else {
-              Write-Host "Docker network octo-net already exists"
-          }
-
-      - name: Start Infra container
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "SilentlyContinue"
-
-          $container = docker ps -aqf "name=^octo-infra$"
-          if ($container) {
-              docker rm -f octo-infra | Out-Null
-          }
-
-          docker run -d `
-            --name octo-infra `
-            --network octo-net `
-            -p 5000:5000 `
-            -v /var/run/docker.sock:/var/run/docker.sock `
-            octo-infra
-
+          wsl bash -lc "
+            set -e
+            chmod +x ./scripts/install-octo.sh
+            ./scripts/install-octo.sh /mnt/c/actions-runner/_work/octo/octo/docker_debs
+          "
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
@@ -158,26 +136,19 @@ jobs:
   smoketest:
     name: Run Smoketest
     runs-on: [self-hosted, windows, x64, octo]
-    needs: docker-infra-up
+    needs: wsl-infra-up
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
 
     steps:
       - uses: actions/checkout@v4
 
-    #  - name: Octo login
-     #   shell: powershell
-      #  run: |
-       #   octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-
       - name: Run pytest smoketest
         shell: powershell
         run: |
-          docker run --rm `
-          --network octo-net `
-          -e SERVER_URL=http://octo-infra:5000 `
-          -e SMOKE_TOKEN=demo-token `
-          octo-test-base `
-          python -m pytest -v smoketest.py
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          octo config --docker octo-test-base
+          cd test
+          octo run smoketest.py
 
 
 # ============================================================
