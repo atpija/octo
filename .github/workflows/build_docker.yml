@@ -1,4 +1,4 @@
-name: Build Docker Images
+name: Build Docker Test Image
 
 on:
   workflow_dispatch:
@@ -6,19 +6,8 @@ on:
 
 jobs:
   build-docker:
-    name: Build Docker Images (${{ matrix.name }})
+    name: Build Docker Test Image
     runs-on: [self-hosted, windows, x64, octo]
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: infra
-            image: octo-infra
-            dockerfile: .github/docker/Dockerfile.octo-infra
-          - name: test
-            image: octo-test-base
-            dockerfile: .github/docker/Dockerfile.octo-test
 
     env:
       CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
@@ -40,7 +29,9 @@ jobs:
             exit 1
           }
 
-          New-Item -ItemType Directory -Force -Path temp | Out-Null
+          # Temp-Verzeichnis für .deb Dateien
+          if (-not (Test-Path temp)) { New-Item -ItemType Directory -Force -Path temp | Out-Null }
+
           Copy-Item "$env:CACHE_ROOT\*.deb" temp -Force -ErrorAction SilentlyContinue
 
           if (-not (Get-ChildItem temp -Filter *.deb)) {
@@ -49,14 +40,14 @@ jobs:
           }
 
       # ------------------------------------------------------------
-      # Build Image
+      # Build Test Image
       # ------------------------------------------------------------
-      - name: Build ${{ matrix.image }}
+      - name: Build octo-test-base
         shell: powershell
         run: |
           docker build `
             --no-cache `
             --pull `
-            -f "${{ matrix.dockerfile }}" `
-            -t "${{ matrix.image }}" `
+            -f ".github/docker/Dockerfile.octo-test" `
+            -t "octo-test-base" `
             .
