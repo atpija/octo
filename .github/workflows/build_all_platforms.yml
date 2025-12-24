@@ -115,7 +115,7 @@ jobs:
 # ============================================================
   wsl-infra-up:
     name: Install Octo Server + Runner in WSL
-    needs: build-docker
+    needs: build-linux
     runs-on: [self-hosted, windows, x64, octo]
 
     steps:
