@@ -16,8 +16,6 @@ on:
 env:
   OCTO_TOKEN: demo-token
   OCTO_SERVER: http://127.0.0.1:5000
-  # Zentraler Build-Cache auf dem Runner
-  BUILD_CACHE_ROOT: C:\octo\build-cache\${{ github.run_id }}
 
 # ============================================================
 # WINDOWS BUILD
@@ -34,28 +32,13 @@ jobs:
       - name: Build Windows components
         shell: powershell
         run: |
-          # Build-Cache Verzeichnis erstellen
-          $cacheDir = "$env:BUILD_CACHE_ROOT\windows"
-          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
-          
           $components = @("client","server","runner")
           foreach ($c in $components) {
             cd $c
             ./build_installer.ps1
             if ($LASTEXITCODE -ne 0) { exit 1 }
-            
-            # Installationsdateien in Cache kopieren
-            Get-ChildItem -Filter *.exe,*.msi -Recurse | ForEach-Object {
-              Copy-Item $_.FullName $cacheDir -Force
-              Write-Host "✅ Cached: $($_.Name)"
-            }
-            
             cd ..
           }
-          
-          Write-Host ""
-          Write-Host "[BUILD CACHE] Windows builds cached in: $cacheDir"
-          Get-ChildItem $cacheDir
 
 # ============================================================
 # LINUX BUILD (Octo parallel)
@@ -67,6 +50,7 @@ jobs:
 
     env:
       CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
+      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -91,16 +75,19 @@ jobs:
 
           $jobs | Wait-Process
 
-      - name: Collect .deb files into build cache
+      - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
-          # Build-Cache Verzeichnis erstellen
-          $cacheDir = "$env:BUILD_CACHE_ROOT\linux"
-          New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
-          
           Write-Host "Collecting .deb files..."
 
-          $debFiles = Get-ChildItem -Recurse -Filter *.deb
+          if (Test-Path docker_debs) {
+              Remove-Item docker_debs -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
+
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb |
+            Where-Object { $_.FullName -notmatch '\\docker_debs\\' }
 
           if (-not $debFiles) {
               Write-Error "No .deb files found!"
@@ -108,51 +95,37 @@ jobs:
           }
 
           foreach ($file in $debFiles) {
-              Copy-Item $file.FullName $cacheDir -Force
-              Write-Host "✅ Cached: $($file.Name)"
+              Copy-Item $file.FullName docker_debs -Force
           }
 
-          Write-Host ""
-          Write-Host "[BUILD CACHE] Linux builds cached in: $cacheDir"
-          Get-ChildItem $cacheDir
+          Get-ChildItem docker_debs
+
+      # ------------------------------------------------------------
+      # LOCAL ARTEFACT CACHE (NEW)
+      # ------------------------------------------------------------
+      - name: Cache .deb files locally
+        shell: powershell
+        run: |
+          Write-Host "Caching debs to $env:LOCAL_DEB_CACHE"
+
+          if (Test-Path $env:LOCAL_DEB_CACHE) {
+            Remove-Item $env:LOCAL_DEB_CACHE -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path $env:LOCAL_DEB_CACHE | Out-Null
+          Copy-Item docker_debs\*.deb $env:LOCAL_DEB_CACHE -Force
+
+          Write-Host "Cached debs:"
+          Get-ChildItem $env:LOCAL_DEB_CACHE
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
 # ============================================================
   build-docker:
     name: Build Docker Images
+    uses: ./.github/workflows/build_docker.yml
     needs: build-linux
-    runs-on: [self-hosted, windows, x64, octo]
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Restore .deb files from cache
-        shell: powershell
-        run: |
-          $cacheDir = "$env:BUILD_CACHE_ROOT\linux"
-          
-          if (-not (Test-Path $cacheDir)) {
-            Write-Error "Cache directory not found: $cacheDir"
-            exit 1
-          }
-          
-          # Erstelle docker_debs für Docker Build
-          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
-          
-          Copy-Item "$cacheDir\*.deb" docker_debs -Force
-          
-          Write-Host "[BUILD CACHE] Restored .deb files:"
-          Get-ChildItem docker_debs
-      
-      - name: Build Docker Images
-        shell: powershell
-        run: |
-          # Dein Docker Build Script hier
-          # Zum Beispiel:
-          docker build -t octo-infra -f docker/Dockerfile.infra .
-          docker build -t octo-test-base -f docker/Dockerfile.test .
 
 # ============================================================
 # SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
@@ -161,45 +134,24 @@ jobs:
     name: Install Octo Server + Runner in WSL
     needs: build-linux
     runs-on: [self-hosted, windows, x64, octo]
-    
+
+    env:
+      DEB_DIR_WIN: C:\octo\artefacts\${{ github.run_id }}
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Restore .deb files from cache
-        shell: powershell
-        run: |
-          $cacheDir = "$env:BUILD_CACHE_ROOT\linux"
-          
-          if (-not (Test-Path $cacheDir)) {
-            Write-Error "Cache directory not found: $cacheDir"
-            exit 1
-          }
-          
-          Write-Host "[BUILD CACHE] Available .deb files in cache:"
-          Get-ChildItem $cacheDir
-      
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          # Nutze den Cache-Pfad statt workspace
-          $cacheDir = "$env:BUILD_CACHE_ROOT\linux"
-          
-          # Windows → WSL Pfad umwandeln
-          $deb = $cacheDir -replace '\\','/'
+          $deb = $env:DEB_DIR_WIN -replace '\\','/'
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
-          
+
           wsl bash -c @"
           set -e
           cd /mnt/c/actions-runner/_work/octo/octo
-          
-          echo '🔧 Converting line endings...'
-          find scripts -type f -name '*.sh' -exec sed -i 's/\r$$//' {} \; 2>/dev/null || true
-          
-          echo '🔧 Making scripts executable...'
+
+          find scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} \;
           chmod +x scripts/install-octo.sh
-          
-          echo '🔧 Running installation...'
           ./scripts/install-octo.sh $deb
           "@
 
@@ -236,34 +188,12 @@ jobs:
     if: always()
 
     steps:
-      - name: Cleanup build cache for this run
-        shell: powershell
-        run: |
-          # Cleanup des aktuellen Build-Cache
-          $currentCache = "$env:BUILD_CACHE_ROOT"
-          if (Test-Path $currentCache) {
-            Write-Host "[CLEANUP] Cleaning up build cache: $currentCache"
-            Remove-Item $currentCache -Recurse -Force
-          }
-      
       - name: Cleanup old runner cache
         shell: powershell
         run: |
-          # Cleanup alter Runner-Caches
           $base = "C:\octo\runner-cache\linux"
           if (Test-Path $base) {
             Get-ChildItem $base -Directory |
               Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-14) } |
               Remove-Item -Recurse -Force
-          }
-          
-          # Cleanup alter Build-Caches (älter als 7 Tage)
-          $buildBase = "C:\octo\build-cache"
-          if (Test-Path $buildBase) {
-            Get-ChildItem $buildBase -Directory |
-              Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } |
-              ForEach-Object {
-                Write-Host "[CLEANUP] Removing old build cache: $($_.Name)"
-                Remove-Item $_.FullName -Recurse -Force
-              }
           }
