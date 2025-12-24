@@ -26,7 +26,3 @@ sudo systemctl restart octo-server || true
 sudo systemctl restart octo-runner || true
 
 echo "✅ Octo installation/update complete"
-
-octo-server --version || true
-octo-runner --version || true
-octo --version || true
