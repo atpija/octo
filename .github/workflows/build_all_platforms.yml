@@ -160,7 +160,7 @@ jobs:
             chmod +x scripts/install-octo.sh
 
             echo 'Run installer'
-            ./scripts/install-octo.sh $deb
+            ./scripts/install-octo.sh "$DEB_DIR"
           "
 
 # ============================================================
