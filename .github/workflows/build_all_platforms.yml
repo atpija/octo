@@ -100,7 +100,6 @@ jobs:
 
           Write-Host "Copied the following .deb files:"
           Get-ChildItem docker_debs
-      
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
@@ -115,28 +114,41 @@ jobs:
 # SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
 # ============================================================
   wsl-infra-up:
-    name: Install Octo in WSL
-    shell: powershell
-    run: |
-      # Windows → WSL Pfad umwandeln
-      $deb = $env:DEB_DIR_WIN -replace '\\','/'
-      $deb = $deb -replace '^C:', '/mnt/c'
-      Write-Host "WSL deb dir: $deb"
+    name: Install Octo Server + Runner in WSL
+    needs: build-linux
+    runs-on: [self-hosted, windows, x64, octo]
+    env:
+      DEB_DIR_WIN: C:\actions-runner\_work\octo\octo\docker_debs
+    
+    steps:
+      - uses: actions/checkout@v4
       
-      # WICHTIG: Erst in WSL wechseln, dann dos2unix ausführen
-      wsl bash -c @"
-      set -e
-      cd /mnt/c/actions-runner/_work/octo/octo
+      - name: Ensure dos2unix in WSL
+        shell: powershell
+        run: |
+          wsl bash -c "command -v dos2unix || sudo apt-get update && sudo apt-get install -y dos2unix"
       
-      # Konvertiere Line-Endings für alle Scripts
-      find scripts -type f -name '*.sh' -exec dos2unix {} \;
-      
-      # Oder falls dos2unix nicht installiert:
-      find scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} \;
-      
-      chmod +x scripts/install-octo.sh
-      ./scripts/install-octo.sh $deb
-      "@
+      - name: Install Octo in WSL
+        shell: powershell
+        run: |
+          # Windows → WSL Pfad umwandeln
+          $deb = $env:DEB_DIR_WIN -replace '\\','/'
+          $deb = $deb -replace '^C:', '/mnt/c'
+          Write-Host "WSL deb dir: $deb"
+          
+          wsl bash -c @"
+          set -e
+          cd /mnt/c/actions-runner/_work/octo/octo
+          
+          echo '🔧 Converting line endings...'
+          find scripts -type f -name '*.sh' -exec dos2unix {} \;
+          
+          echo '🔧 Making scripts executable...'
+          chmod +x scripts/install-octo.sh
+          
+          echo '🔧 Running installation...'
+          ./scripts/install-octo.sh $deb
+          "@
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
@@ -157,7 +169,6 @@ jobs:
           octo config --docker octo-test-base
           cd test
           octo run smoketest.py
-
 
 # ============================================================
 # CLEANUP
