@@ -3,36 +3,27 @@ set -e
 
 echo "🔧 Installing Octo Server + Runner"
 
-INPUT_DIR="$1"
-DEB_DIR=""
+ROOT_DIR="$1"
 
-# ------------------------------------------------------------
-# Wenn Pfad übergeben wurde und existiert → benutzen
-# ------------------------------------------------------------
-if [ -n "$INPUT_DIR" ] && [ -d "$INPUT_DIR" ]; then
-  DEB_DIR="$INPUT_DIR"
+if [ -z "$ROOT_DIR" ]; then
+  echo "❌ Usage: install-octo.sh <artifact-root-dir>"
+  exit 1
 fi
 
+if [ ! -d "$ROOT_DIR" ]; then
+  echo "❌ Artifact root not found: $ROOT_DIR"
+  exit 1
+fi
+
+echo "🔍 Searching in $ROOT_DIR ..."
+
 # ------------------------------------------------------------
-# Fallback: lokaler Artefact-Cache (/mnt/c/octo/artefacts/*)
+# Find directory containing octo-*.deb
 # ------------------------------------------------------------
+DEB_DIR=$(find "$ROOT_DIR" -type f -name 'octo-*.deb' -printf '%h\n' | sort -u | head -n 1)
+
 if [ -z "$DEB_DIR" ]; then
-  echo "🔍 Searching in /mnt/c/octo/artefacts ..."
-  DEB_DIR=$(ls -td /mnt/c/octo/artefacts/* 2>/dev/null | head -n 1 || true)
-fi
-
-# ------------------------------------------------------------
-# Fallback: Repo docker_debs/
-# ------------------------------------------------------------
-if [ -z "$DEB_DIR" ] && [ -d "./docker_debs" ]; then
-  DEB_DIR="./docker_debs"
-fi
-
-# ------------------------------------------------------------
-# Validierung
-# ------------------------------------------------------------
-if [ -z "$DEB_DIR" ] || [ ! -d "$DEB_DIR" ]; then
-  echo "❌ No valid deb directory found"
+  echo "❌ No octo-*.deb files found under $ROOT_DIR"
   exit 1
 fi
 
@@ -40,7 +31,7 @@ echo "📦 Using deb directory: $DEB_DIR"
 ls -lh "$DEB_DIR"
 
 # ------------------------------------------------------------
-# Install
+# Install packages
 # ------------------------------------------------------------
 sudo dpkg -i \
   "$DEB_DIR"/octo-server*.deb \
@@ -49,10 +40,16 @@ sudo dpkg -i \
   || sudo apt-get -f install -y
 
 # ------------------------------------------------------------
-# Restart services (non-fatal)
+# Restart services
 # ------------------------------------------------------------
 echo "🔁 Restarting services"
 sudo systemctl restart octo-server || true
 sudo systemctl restart octo-runner || true
 
+# ------------------------------------------------------------
+# Verify
+# ------------------------------------------------------------
 echo "✅ Octo installation/update complete"
+octo-server --version || true
+octo-runner --version || true
+octo --version || true
