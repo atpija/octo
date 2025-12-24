@@ -101,12 +101,6 @@ jobs:
           Write-Host "Copied the following .deb files:"
           Get-ChildItem docker_debs
       
-      - name: Upload Linux .deb artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: octo-debs
-          path: docker_debs/*.deb
-
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
@@ -121,35 +115,28 @@ jobs:
 # SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
 # ============================================================
   wsl-infra-up:
-    name: Install Octo Server + Runner in WSL
-    needs: build-linux
-    runs-on: [self-hosted, windows, x64, octo]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Linux .deb artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: octo-debs
-          path: docker_debs
-
-      - name: Install Octo in WSL
-        shell: powershell
-        run: |
-          # Windows → WSL Pfad umwandeln
-          $debWin = "$PWD\docker_debs"
-          $debWsl = $debWin -replace '\\','/'
-          $debWsl = "/mnt/" + $debWsl.Substring(0,1).ToLower() + $debWsl.Substring(2)
-
-          Write-Host "WSL deb dir: $debWsl"
-
-          wsl bash -lc "
-            set -e
-            sed -i 's/\r$//' scripts/install-octo.sh
-            chmod +x scripts/install-octo.sh
-            scripts/install-octo.sh $debWsl
-          "
+    name: Install Octo in WSL
+    shell: powershell
+    run: |
+      # Windows → WSL Pfad umwandeln
+      $deb = $env:DEB_DIR_WIN -replace '\\','/'
+      $deb = $deb -replace '^C:', '/mnt/c'
+      Write-Host "WSL deb dir: $deb"
+      
+      # WICHTIG: Erst in WSL wechseln, dann dos2unix ausführen
+      wsl bash -c @"
+      set -e
+      cd /mnt/c/actions-runner/_work/octo/octo
+      
+      # Konvertiere Line-Endings für alle Scripts
+      find scripts -type f -name '*.sh' -exec dos2unix {} \;
+      
+      # Oder falls dos2unix nicht installiert:
+      find scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} \;
+      
+      chmod +x scripts/install-octo.sh
+      ./scripts/install-octo.sh $deb
+      "@
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
