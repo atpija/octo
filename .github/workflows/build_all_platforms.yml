@@ -121,8 +121,6 @@ jobs:
       DEB_DIR_WIN: C:\actions-runner\_work\octo\octo\docker_debs
     
     steps:
-      - uses: actions/checkout@v4
-      
       - name: Install Octo in WSL
         shell: powershell
         run: |
