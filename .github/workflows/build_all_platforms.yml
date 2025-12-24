@@ -123,11 +123,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Ensure dos2unix in WSL
-        shell: powershell
-        run: |
-          wsl bash -c "command -v dos2unix || sudo apt-get update && sudo apt-get install -y dos2unix"
-      
       - name: Install Octo in WSL
         shell: powershell
         run: |
@@ -141,7 +136,7 @@ jobs:
           cd /mnt/c/actions-runner/_work/octo/octo
           
           echo '🔧 Converting line endings...'
-          find scripts -type f -name '*.sh' -exec dos2unix {} \;
+          find scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} \;
           
           echo '🔧 Making scripts executable...'
           chmod +x scripts/install-octo.sh
