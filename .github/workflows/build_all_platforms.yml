@@ -145,9 +145,9 @@ jobs:
         shell: powershell
         run: |
           # Windows → WSL Pfad
-          $deb = $env:DEB_DIR_WIN -replace '\\','/'
-          $deb = $deb -replace '^C:', '/mnt/c'
-          Write-Host "WSL deb dir: $deb"
+          # $deb = $env:DEB_DIR_WIN -replace '\\','/'
+          # $deb = $deb -replace '^C:', '/mnt/c'
+          # Write-Host "WSL deb dir: $deb"
 
           wsl bash -lc "
             set -e
