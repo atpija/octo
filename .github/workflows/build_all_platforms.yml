@@ -118,13 +118,28 @@ jobs:
     needs: build-linux
     runs-on: [self-hosted, windows, x64, octo]
 
+    env:
+      DEB_DIR_WIN: C:\actions-runner\_work\octo\octo\docker_debs
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          wsl bash -lc "set -e && chmod +x scripts/install-octo.sh && scripts/install-octo.sh /mnt/c/actions-runner/_work/octo/octo/docker_debs"
+          # Windows → WSL Pfad korrekt umwandeln
+          $winPath = $env:DEB_DIR_WIN
+          $drive   = $winPath.Substring(0,1).ToLower()
+          $rest    = $winPath.Substring(2) -replace '\\','/'
+          $wslPath = "/mnt/$drive$rest"
+
+          Write-Host "WSL deb dir: $wslPath"
+
+          wsl bash -lc "
+            set -e
+            chmod +x scripts/install-octo.sh
+            scripts/install-octo.sh '$wslPath'
+          "
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
