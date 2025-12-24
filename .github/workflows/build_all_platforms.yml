@@ -53,7 +53,8 @@ jobs:
             cd ..
           }
           
-          Write-Host "`n📦 Windows builds cached in: $cacheDir"
+          Write-Host ""
+          Write-Host "[BUILD CACHE] Windows builds cached in: $cacheDir"
           Get-ChildItem $cacheDir
 
 # ============================================================
@@ -111,7 +112,8 @@ jobs:
               Write-Host "✅ Cached: $($file.Name)"
           }
 
-          Write-Host "`n📦 Linux builds cached in: $cacheDir"
+          Write-Host ""
+          Write-Host "[BUILD CACHE] Linux builds cached in: $cacheDir"
           Get-ChildItem $cacheDir
 
 # ============================================================
@@ -141,7 +143,7 @@ jobs:
           
           Copy-Item "$cacheDir\*.deb" docker_debs -Force
           
-          Write-Host "📦 Restored .deb files:"
+          Write-Host "[BUILD CACHE] Restored .deb files:"
           Get-ChildItem docker_debs
       
       - name: Build Docker Images
@@ -173,7 +175,7 @@ jobs:
             exit 1
           }
           
-          Write-Host "📦 Available .deb files in cache:"
+          Write-Host "[BUILD CACHE] Available .deb files in cache:"
           Get-ChildItem $cacheDir
       
       - name: Install Octo in WSL
@@ -240,7 +242,7 @@ jobs:
           # Cleanup des aktuellen Build-Cache
           $currentCache = "$env:BUILD_CACHE_ROOT"
           if (Test-Path $currentCache) {
-            Write-Host "🧹 Cleaning up build cache: $currentCache"
+            Write-Host "[CLEANUP] Cleaning up build cache: $currentCache"
             Remove-Item $currentCache -Recurse -Force
           }
       
@@ -261,7 +263,7 @@ jobs:
             Get-ChildItem $buildBase -Directory |
               Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } |
               ForEach-Object {
-                Write-Host "🧹 Removing old build cache: $($_.Name)"
+                Write-Host "[CLEANUP] Removing old build cache: $($_.Name)"
                 Remove-Item $_.FullName -Recurse -Force
               }
           }
