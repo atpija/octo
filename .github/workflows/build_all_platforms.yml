@@ -127,20 +127,18 @@ jobs:
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          # Windows → WSL Pfad korrekt umwandeln
-          $winPath = $env:DEB_DIR_WIN
-          $drive   = $winPath.Substring(0,1).ToLower()
-          $rest    = $winPath.Substring(2) -replace '\\','/'
-          $wslPath = "/mnt/$drive$rest"
+          # Windows → WSL Pfad umwandeln
+          $deb = $env:DEB_DIR_WIN -replace '\\','/'
+          $deb = $deb -replace '^C:', '/mnt/c'
 
-          Write-Host "WSL deb dir: $wslPath"
+          Write-Host "WSL deb dir: $deb"
 
           wsl bash -lc "
             set -e
+            sed -i 's/\r$//' scripts/install-octo.sh
             chmod +x scripts/install-octo.sh
-            scripts/install-octo.sh '$wslPath'
+            scripts/install-octo.sh $deb
           "
-
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
 # ============================================================
