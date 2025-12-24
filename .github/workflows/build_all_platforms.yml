@@ -100,6 +100,13 @@ jobs:
 
           Write-Host "Copied the following .deb files:"
           Get-ChildItem docker_debs
+      
+      - name: Upload Linux .deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: octo-debs
+          path: docker_debs/*.deb
+
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
@@ -118,23 +125,30 @@ jobs:
     needs: build-linux
     runs-on: [self-hosted, windows, x64, octo]
 
-    env:
-      DEB_DIR_WIN: C:\actions-runner\_work\octo\octo\docker_debs
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download Linux .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: octo-debs
+          path: docker_debs
 
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          $deb = "C:\actions-runner\_work\octo\octo\docker_debs" -replace '\\','/'
-          Write-Host "WSL deb dir: /mnt/$deb"
+          # Windows → WSL Pfad umwandeln
+          $debWin = "$PWD\docker_debs"
+          $debWsl = $debWin -replace '\\','/'
+          $debWsl = "/mnt/" + $debWsl.Substring(0,1).ToLower() + $debWsl.Substring(2)
+
+          Write-Host "WSL deb dir: $debWsl"
 
           wsl bash -lc "
             set -e
             sed -i 's/\r$//' scripts/install-octo.sh
             chmod +x scripts/install-octo.sh
-            scripts/install-octo.sh /mnt/$deb
+            scripts/install-octo.sh $debWsl
           "
 
 # ============================================================
