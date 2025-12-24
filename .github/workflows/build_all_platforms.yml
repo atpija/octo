@@ -142,18 +142,18 @@ jobs:
       - name: Install Octo in WSL
         shell: powershell
         run: |
+          # Windows → WSL Pfad
           $deb = $env:DEB_DIR_WIN -replace '\\','/'
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
 
-          wsl bash -c @"
-          set -e
-          cd /mnt/c/actions-runner/_work/octo/octo
-
-          find scripts -type f -name '*.sh' -exec sed -i 's/\r$//' {} \;
-          chmod +x scripts/install-octo.sh
-          ./scripts/install-octo.sh $deb
-          "@
+          wsl bash -lc " \
+            set -e && \
+            cd /mnt/c/actions-runner/_work/octo/octo && \
+            sed -i 's/\r$//' scripts/install-octo.sh && \
+            chmod +x scripts/install-octo.sh && \
+            ./scripts/install-octo.sh '$deb' \
+          "
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
