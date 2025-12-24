@@ -139,19 +139,20 @@ jobs:
       DEB_DIR_WIN: C:\octo\artefacts\${{ github.run_id }}
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          # Windows → WSL Pfad
-          $deb = $env:DEB_DIR_WIN -replace '\\','/'
-          $deb = $deb -replace '^C:', '/mnt/c'
-          Write-Host "WSL deb dir: $deb"
-
           wsl bash -lc "
             set -e
             cd /mnt/c/actions-runner/_work/octo/octo
+
+            echo '🔧 Fix line endings'
+            sed -i 's/\r$//' scripts/install-octo.sh
+
             chmod +x scripts/install-octo.sh
-            scripts/install-octo.sh '$deb'
+            ./scripts/install-octo.sh $deb
           "
 
 # ============================================================
