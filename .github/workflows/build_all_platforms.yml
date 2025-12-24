@@ -147,12 +147,11 @@ jobs:
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
 
-          wsl bash -lc " \
-            set -e && \
-            cd /mnt/c/actions-runner/_work/octo/octo && \
-            sed -i 's/\r$//' scripts/install-octo.sh && \
-            chmod +x scripts/install-octo.sh && \
-            ./scripts/install-octo.sh '$deb' \
+          wsl bash -lc "
+            set -e
+            cd /mnt/c/actions-runner/_work/octo/octo
+            chmod +x scripts/install-octo.sh
+            scripts/install-octo.sh '$deb'
           "
 
 # ============================================================
