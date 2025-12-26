@@ -130,42 +130,42 @@ jobs:
 # ============================================================
 # SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
 # ============================================================
-wsl-infra-up:
-  name: Install Octo Server + Runner in WSL
-  needs: build-linux
-  runs-on: [self-hosted, windows, x64, octo]
+  wsl-infra-up:
+    name: Install Octo Server + Runner in WSL
+    needs: build-linux
+    runs-on: [self-hosted, windows, x64, octo]
 
-  env:
-    DEB_DIR_WIN: C:\octo\artefacts\${{ github.run_id }}
+    env:
+      DEB_DIR_WIN: C:\octo\artefacts\${{ github.run_id }}
 
-  steps:
-    - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Install Octo in WSL
-      shell: powershell
-      run: |
-        # Windows → WSL Pfad
-        $deb = $env:DEB_DIR_WIN -replace '\\','/'
-        $deb = $deb -replace '^C:', '/mnt/c'
-        Write-Host "WSL deb dir: $deb"
+      - name: Install Octo in WSL
+        shell: powershell
+        run: |
+          # Windows → WSL Pfad
+          $deb = $env:DEB_DIR_WIN -replace '\\','/'
+          $deb = $deb -replace '^C:', '/mnt/c'
+          Write-Host "WSL deb dir: $deb"
 
-        # Bash Script als LF-sicherer Here-String
-        $script = @'
-        set -e
-        cd /mnt/c/actions-runner/_work/octo/octo
+          # Bash Script als LF-sicherer Here-String
+          $script = @'
+          set -e
+          cd /mnt/c/actions-runner/_work/octo/octo
 
-        echo "Fix line endings"
-        sed -i 's/\r$//' scripts/install-octo.sh
+          echo "Fix line endings"
+          sed -i 's/\r$//' scripts/install-octo.sh
 
-        echo "Make executable"
-        chmod +x scripts/install-octo.sh
+          echo "Make executable"
+          chmod +x scripts/install-octo.sh
 
-        echo "Run installer"
-        ./scripts/install-octo.sh "$1"
-        '@
+          echo "Run installer"
+          ./scripts/install-octo.sh "$1"
+          '@
 
-        # Übergabe des deb-Verzeichnisses als Argument
-        wsl bash -lc "$script" -- "$deb"
+          # Übergabe des deb-Verzeichnisses als Argument
+          wsl bash -lc "$script" -- "$deb"
 
 # ============================================================
 # SMOKETEST (OCTO ORCHESTRATED)
