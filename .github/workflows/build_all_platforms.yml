@@ -153,8 +153,8 @@ jobs:
             set -e
             cd /mnt/c/actions-runner/_work/octo/octo
 
-            #echo 'Fix line endings'
-            #sed -i 's/\r$//' scripts/install-octo.sh
+            echo 'Fix line endings'
+            sed -i 's/\r$//' scripts/install-octo.sh
 
             echo 'Make executable'
             chmod +x scripts/install-octo.sh
