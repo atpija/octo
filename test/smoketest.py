@@ -171,5 +171,13 @@ def test_run_with_default_docker(tmp_path):
 
 
 if __name__ == "__main__":
-    import sys
     import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))

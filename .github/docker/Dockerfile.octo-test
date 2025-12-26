@@ -46,5 +46,5 @@ ENV SMOKE_TOKEN=demo-token
 # ------------------------------------------------------------
 # AUTO-RUN PYTEST
 # ------------------------------------------------------------
-ENTRYPOINT ["python", "-m", "pytest"]
-CMD ["-v", "smoketest.py"]
+#ENTRYPOINT ["python", "-m", "pytest"]
+#CMD ["-v", "smoketest.py"]
