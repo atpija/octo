@@ -4,7 +4,7 @@ import pytest
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5000")
 TOKEN = os.environ.get("DAILY_TOKEN", "demo-token")
 
 
@@ -115,3 +115,14 @@ def test_two_runners_conflict(tmp_path):
     assert "conflict task 0" in results[0] or results[1]
     assert "conflict task 1" in results[0] or results[1]
 
+if __name__ == "__main__":
+    import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))

@@ -173,7 +173,9 @@ jobs:
   smoketest:
     name: Run Smoketest
     runs-on: [self-hosted, windows, x64, octo]
-    needs: wsl-infra-up
+    needs: 
+      - wsl-infra-up
+      - build-docker
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
 
     steps:
@@ -186,6 +188,14 @@ jobs:
           octo config --docker octo-test-base
           cd test
           octo run smoketest.py
+      
+      - name: Run pytest daily
+        shell: powershell
+        run: |
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          octo config --docker octo-test-base
+          cd test
+          octo run test_daily.py
 
 # ============================================================
 # CLEANUP
