@@ -149,8 +149,7 @@ jobs:
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
 
-          # Bash Script über STDIN (CRLF-sicher!)
-          wsl bash -s -- "$deb" << 'EOF'
+          $bash = @'
           set -e
 
           echo "Changing directory"
@@ -164,7 +163,9 @@ jobs:
 
           echo "Run installer"
           ./scripts/install-octo.sh "$1"
-          EOF
+          '@
+
+          $bash | wsl bash -s -- "$deb"
 
 
 # ============================================================
