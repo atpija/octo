@@ -22,7 +22,6 @@ ls -lh "$INPUT_DIR"
 sudo dpkg -i \
   "$INPUT_DIR"/octo-server*.deb \
   "$INPUT_DIR"/octo-runner*.deb \
-  "$INPUT_DIR"/octo-client*.deb \
   || sudo apt-get -f install -y
 
 # ------------------------------------------------------------

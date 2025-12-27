@@ -149,9 +149,11 @@ jobs:
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
 
-          # Bash Script als LF-sicherer Here-String
-          $script = @'
+          # Bash Script über STDIN (CRLF-sicher!)
+          wsl bash -s -- "$deb" << 'EOF'
           set -e
+
+          echo "Changing directory"
           cd /mnt/c/actions-runner/_work/octo/octo
 
           echo "Fix line endings"
@@ -162,40 +164,42 @@ jobs:
 
           echo "Run installer"
           ./scripts/install-octo.sh "$1"
-          '@
+          EOF
 
-          # Übergabe des deb-Verzeichnisses als Argument
-          wsl bash -lc "$script" -- "$deb"
 
 # ============================================================
-# SMOKETEST (OCTO ORCHESTRATED)
+# SMOKETESTS (PARALLEL, OCTO ORCHESTRATED)
 # ============================================================
   smoketest:
-    name: Run Smoketest
+    name: Run Octo Smoketests (parallel)
     runs-on: [self-hosted, windows, x64, octo]
-    needs: 
+    needs:
       - wsl-infra-up
       - build-docker
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
 
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - smoketest.py
+          - test_daily.py
+          # später beliebig erweitern
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run pytest smoketest
+      - name: Configure Octo
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker octo-test-base
-          cd test
-          octo run smoketest.py
-      
-      - name: Run pytest daily
+
+      - name: Run test via Octo
         shell: powershell
         run: |
-          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker octo-test-base
           cd test
-          octo run test_daily.py
+          octo run ${{ matrix.test }}
 
 # ============================================================
 # CLEANUP
