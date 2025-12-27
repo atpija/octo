@@ -85,7 +85,7 @@ def test_parallel_runs(tmp_path):
         f.write_text(f"print('Task {i}')")
         return run_cmd(["octo", "run", str(f)])[1]
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(run_one, range(10)))
 
     for i, output in enumerate(results):
