@@ -32,7 +32,7 @@ echo "🚀 Enabling and starting services"
 sudo systemctl enable --now octo-server
 
 # Runner starten (Token-abhängig)
-sudo systemctl enable --now octo-runner@demo-token
 sudo systemctl enable --now octo-runner@demo-token1
 sudo systemctl enable --now octo-runner@demo-token2
+sudo systemctl enable --now octo-runner@demo-token3
 
