@@ -4,7 +4,7 @@ import pytest
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+SERVER_URL = os.environ.get("SERVER_URL", "http://172.30.170.213:5001")
 TOKEN = os.environ.get("DAILY_TOKEN", "demo-token2")
 
 
