@@ -166,7 +166,11 @@ jobs:
           '@
 
           $bash | wsl bash -s -- "$deb"
-
+      
+      - name: Verify Octo installation in WSL
+        shell: powershell
+        run: |
+          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
 
 # ============================================================
 # SMOKETESTS (PARALLEL, OCTO ORCHESTRATED)
