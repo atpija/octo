@@ -144,29 +144,12 @@ jobs:
       - name: Install Octo in WSL
         shell: powershell
         run: |
-          # Windows → WSL Pfad
           $deb = $env:DEB_DIR_WIN -replace '\\','/'
           $deb = $deb -replace '^C:', '/mnt/c'
           Write-Host "WSL deb dir: $deb"
 
-          $bash = @'
-          set -e
+          wsl bash scripts/install-wsl-octo.sh "$deb"
 
-          echo "Changing directory"
-          cd /mnt/c/actions-runner/_work/octo/octo
-
-          echo "Fix line endings"
-          sed -i 's/\r$//' scripts/install-octo.sh
-
-          echo "Make executable"
-          chmod +x scripts/install-octo.sh
-
-          echo "Run installer"
-          ./scripts/install-octo.sh "$1"
-          '@
-
-          $bash | wsl bash -s -- "$deb"
-      
       - name: Verify Octo installation in WSL
         shell: powershell
         run: |
