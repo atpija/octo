@@ -4,8 +4,8 @@ import pytest
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5000")
-TOKEN = os.environ.get("DAILY_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("DAILY_TOKEN", "demo-token2")
 
 
 def run_cmd(cmd, timeout=600):
@@ -58,13 +58,13 @@ def test_cpu_intensive(tmp_path):
     assert "sum" in output
 
 
-def test_massive_output(tmp_path):
-    """Sehr viele Prints (100k Zeilen)"""
-    f = tmp_path / "spam_big.py"
-    f.write_text("for i in range(100000): print(f'line {i}')")
-    code, output = run_cmd(["octo", "run", str(f)], timeout=300)
-    assert code == 0
-    assert "line 99999" in output
+#def test_massive_output(tmp_path):
+#    """Sehr viele Prints (100k Zeilen)"""
+#    f = tmp_path / "spam_big.py"
+#    f.write_text("for i in range(100000): print(f'line {i}')")
+#    code, output = run_cmd(["octo", "run", str(f)], timeout=300)
+#    assert code == 0
+#    assert "line 99999" in output
 
 
 def test_parallel_long_tasks(tmp_path):

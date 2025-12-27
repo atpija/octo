@@ -26,3 +26,13 @@ sudo -n systemctl restart octo-server || true
 sudo -n systemctl restart octo-runner || true
 
 echo "✅ Octo installation/update complete"
+
+echo "🚀 Enabling and starting services"
+# Server starten
+sudo systemctl enable --now octo-server
+
+# Runner starten (Token-abhängig)
+sudo systemctl enable --now octo-runner@demo-token
+sudo systemctl enable --now octo-runner@demo-token1
+sudo systemctl enable --now octo-runner@demo-token2
+

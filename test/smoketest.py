@@ -3,8 +3,8 @@ import subprocess
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token1")
 
 
 def run_cmd(cmd, timeout=20):
