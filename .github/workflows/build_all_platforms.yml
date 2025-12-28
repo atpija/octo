@@ -181,6 +181,7 @@ jobs:
           $tests = @("smoketest.py", "test_daily.py")
           $jobs = @()
           $logfiles = @{}
+          $exitCodeFiles = @{}
           
           Write-Host "========================================"
           Write-Host "Starting $($tests.Count) tests in parallel"
@@ -188,10 +189,19 @@ jobs:
           
           foreach ($test in $tests) {
             $logfile = "$env:TEMP\octo-test-$test-$((Get-Date).Ticks).log"
+            $exitCodeFile = "$env:TEMP\octo-exit-$test-$((Get-Date).Ticks).txt"
             $logfiles[$test] = $logfile
+            $exitCodeFiles[$test] = $exitCodeFile
+            
+            $scriptBlock = @"
+          cd '$root/test'
+          octo run $test *>&1 | Tee-Object -FilePath '$logfile'
+          `$LASTEXITCODE | Out-File -FilePath '$exitCodeFile' -NoNewline
+          exit `$LASTEXITCODE
+          "@
             
             $job = Start-Process powershell `
-              -ArgumentList "-Command `$ErrorActionPreference='Continue'; cd '$root/test'; octo run $test *>&1 | Tee-Object -FilePath '$logfile'" `
+              -ArgumentList "-Command", $scriptBlock `
               -PassThru `
               -NoNewWindow
             
@@ -203,22 +213,8 @@ jobs:
           Write-Host "Waiting for all tests to complete..."
           Write-Host ""
           
-          # Monitoring während Tests laufen
-          $completed = @()
-          while ($jobs | Where-Object { -not $_.HasExited }) {
-            Start-Sleep -Seconds 2
-            foreach ($job in $jobs) {
-              if ($job.HasExited -and $job.Id -notin $completed) {
-                $testName = $tests[$jobs.IndexOf($job)]
-                if ($job.ExitCode -eq 0) {
-                  Write-Host "[PASS] $testName (Exit: $($job.ExitCode))"
-                } else {
-                  Write-Host "[FAIL] $testName (Exit: $($job.ExitCode))"
-                }
-                $completed += $job.Id
-              }
-            }
-          }
+          # Warten bis alle fertig sind
+          $jobs | Wait-Process
           
           Write-Host ""
           Write-Host "========================================"
@@ -227,9 +223,10 @@ jobs:
           
           # Logs und Ergebnisse ausgeben
           $failedTests = @()
-          foreach ($test in $tests) {
-            $job = $jobs[$tests.IndexOf($test)]
+          for ($i = 0; $i -lt $tests.Count; $i++) {
+            $test = $tests[$i]
             $logfile = $logfiles[$test]
+            $exitCodeFile = $exitCodeFiles[$test]
             
             Write-Host ""
             Write-Host "============================================================"
@@ -242,13 +239,20 @@ jobs:
               Write-Host "[WARN] Log file not found: $logfile"
             }
             
-            if ($job.ExitCode -ne 0) {
-              $failedTests += $test
-              Write-Host ""
-              Write-Host "[FAIL] $test FAILED (Exit Code: $($job.ExitCode))"
+            # Exit-Code aus Datei lesen
+            $exitCode = 1
+            if (Test-Path $exitCodeFile) {
+              $exitCode = [int](Get-Content $exitCodeFile -Raw)
             } else {
-              Write-Host ""
-              Write-Host "[PASS] $test PASSED"
+              Write-Host "[WARN] Exit code file not found: $exitCodeFile"
+            }
+            
+            Write-Host ""
+            if ($exitCode -ne 0) {
+              $failedTests += $test
+              Write-Host "[FAIL] $test FAILED (Exit Code: $exitCode)"
+            } else {
+              Write-Host "[PASS] $test PASSED (Exit Code: $exitCode)"
             }
           }
           
