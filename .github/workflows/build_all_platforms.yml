@@ -165,29 +165,40 @@ jobs:
       - wsl-infra-up
       - build-docker
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        test:
-          - smoketest.py
-          - test_daily.py
-          # später beliebig erweitern
-
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Configure Octo
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker octo-test-base
-
-      - name: Run test via Octo
+      
+      - name: Run tests in parallel via Octo
         shell: powershell
         run: |
-          cd test
-          octo run ${{ matrix.test }}
+          $root = Get-Location
+          $tests = @("smoketest.py", "test_daily.py")  # später beliebig erweitern
+          $jobs = @()
+          
+          foreach ($test in $tests) {
+            $jobs += Start-Process powershell `
+              -ArgumentList "-Command cd `"$root/test`"; octo run $test" `
+              -PassThru
+            Write-Host "Started $test (PID: $($jobs[-1].Id))"
+          }
+          
+          Write-Host "Waiting for all tests to complete..."
+          $jobs | Wait-Process
+          
+          # Exit mit Fehler wenn ein Test fehlgeschlagen ist
+          $failed = $jobs | Where-Object { $_.ExitCode -ne 0 }
+          if ($failed) {
+            Write-Error "$($failed.Count) test(s) failed!"
+            exit 1
+          }
+          
+          Write-Host "All tests passed!"
 
 # ============================================================
 # CLEANUP
