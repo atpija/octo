@@ -156,10 +156,10 @@ jobs:
           wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
 
 # ============================================================
-# SMOKETESTS (PARALLEL, OCTO ORCHESTRATED)
+# Tests (PARALLEL, OCTO ORCHESTRATED)
 # ============================================================
-  smoketest:
-    name: Run Octo Smoketests (parallel)
+  tests:
+    name: Run Octo Test Set (parallel)
     runs-on: [self-hosted, windows, x64, octo]
     needs:
       - wsl-infra-up
@@ -180,25 +180,83 @@ jobs:
           $root = Get-Location
           $tests = @("smoketest.py", "test_daily.py")  # später beliebig erweitern
           $jobs = @()
+          $logfiles = @{}
+          
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Starting $($tests.Count) tests in parallel" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
           
           foreach ($test in $tests) {
-            $jobs += Start-Process powershell `
-              -ArgumentList "-Command cd `"$root/test`"; octo run $test" `
-              -PassThru
-            Write-Host "Started $test (PID: $($jobs[-1].Id))"
+            $logfile = "$env:TEMP\octo-test-$test-$((Get-Date).Ticks).log"
+            $logfiles[$test] = $logfile
+            
+            $job = Start-Process powershell `
+              -ArgumentList "-Command `$ErrorActionPreference='Continue'; cd '$root/test'; octo run $test *>&1 | Tee-Object -FilePath '$logfile'" `
+              -PassThru `
+              -NoNewWindow
+            
+            $jobs += $job
+            Write-Host "✓ Started $test (PID: $($job.Id))" -ForegroundColor Green
           }
           
-          Write-Host "Waiting for all tests to complete..."
-          $jobs | Wait-Process
+          Write-Host "`n⏳ Waiting for all tests to complete...`n" -ForegroundColor Yellow
           
-          # Exit mit Fehler wenn ein Test fehlgeschlagen ist
-          $failed = $jobs | Where-Object { $_.ExitCode -ne 0 }
-          if ($failed) {
-            Write-Error "$($failed.Count) test(s) failed!"
+          # Monitoring während Tests laufen
+          $completed = @()
+          while ($jobs | Where-Object { -not $_.HasExited }) {
+            Start-Sleep -Seconds 2
+            foreach ($job in $jobs) {
+              if ($job.HasExited -and $job.Id -notin $completed) {
+                $testName = $tests[$jobs.IndexOf($job)]
+                $status = if ($job.ExitCode -eq 0) { "✅ PASSED" } else { "❌ FAILED" }
+                Write-Host "$status - $testName (Exit: $($job.ExitCode))" -ForegroundColor $(if ($job.ExitCode -eq 0) { "Green" } else { "Red" })
+                $completed += $job.Id
+              }
+            }
+          }
+          
+          Write-Host "`n========================================" -ForegroundColor Cyan
+          Write-Host "Test Results" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+          
+          # Logs und Ergebnisse ausgeben
+          $failedTests = @()
+          foreach ($test in $tests) {
+            $job = $jobs[$tests.IndexOf($test)]
+            $logfile = $logfiles[$test]
+            
+            Write-Host "`n" + ("=" * 60) -ForegroundColor Cyan
+            Write-Host "  $test" -ForegroundColor Cyan
+            Write-Host ("=" * 60) -ForegroundColor Cyan
+            
+            if (Test-Path $logfile) {
+              Get-Content $logfile | Write-Host
+            } else {
+              Write-Host "⚠️  Log file not found: $logfile" -ForegroundColor Yellow
+            }
+            
+            if ($job.ExitCode -ne 0) {
+              $failedTests += $test
+              Write-Host "`n❌ $test FAILED (Exit Code: $($job.ExitCode))" -ForegroundColor Red
+            } else {
+              Write-Host "`n✅ $test PASSED" -ForegroundColor Green
+            }
+          }
+          
+          Write-Host "`n========================================" -ForegroundColor Cyan
+          Write-Host "Summary" -ForegroundColor Cyan
+          Write-Host "========================================" -ForegroundColor Cyan
+          Write-Host "Total tests: $($tests.Count)" -ForegroundColor White
+          Write-Host "Passed: $($tests.Count - $failedTests.Count)" -ForegroundColor Green
+          Write-Host "Failed: $($failedTests.Count)" -ForegroundColor Red
+          
+          if ($failedTests.Count -gt 0) {
+            Write-Host "`n❌ Failed tests:" -ForegroundColor Red
+            $failedTests | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
             exit 1
           }
           
-          Write-Host "All tests passed!"
+          Write-Host "`n✅ All tests passed!" -ForegroundColor Green
 
 # ============================================================
 # CLEANUP
