@@ -1,46 +1,50 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# ------------------------------------------------------------
+# System Dependencies
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    curl wget git python3 python3-pip python3-venv ca-certificates \
-    docker.io \
+    ca-certificates \
+    curl \
+    python3 \
+    python3-venv \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Installiere Python Test und Development Dependencies
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install pytest
+# ------------------------------------------------------------
+# Python Virtual Environment (PEP 668 compliant)
+# ------------------------------------------------------------
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Kopiere alle .deb Dateien aus docker_debs/
-COPY docker_debs/*.deb /tmp/
+# ------------------------------------------------------------
+# Python test deps
+# ------------------------------------------------------------
+RUN pip install --upgrade pip setuptools wheel pytest
 
-# Installiere alle .deb Dateien
-RUN cd /tmp && \
-    find . -name "*.deb" -exec apt-get install -y {} \; && \
-    rm -f /tmp/*.deb
+# ------------------------------------------------------------
+# Install Octo CLIENT only
+# ------------------------------------------------------------
+COPY temp/octo-client*.deb /tmp/
+RUN dpkg -i /tmp/octo-client*.deb || apt-get -f install -y
+RUN rm -f /tmp/*.deb
 
-# Erstelle ein Startup-Skript
-RUN mkdir -p /app
-RUN cat > /app/entrypoint.sh << 'ENTRYPOINT_EOF'
-#!/bin/bash
-set -e
+# ------------------------------------------------------------
+# Workspace + tests
+# ------------------------------------------------------------
+WORKDIR /workspace
+COPY test/smoketest.py /workspace/smoketest.py
 
-echo "🔐 Adding demo token to server..."
-octo-server token-add demo-token
+# ------------------------------------------------------------
+# Runtime ENV (optional defaults)
+# ------------------------------------------------------------
+#ENV SERVER_URL=http://host.docker.internal:5001
+#ENV SMOKE_TOKEN=demo-token1
 
-echo "🚀 Starting Octo Server..."
-octo-server server &
-SERVER_PID=$!
-
-sleep 2
-
-echo "🏃 Starting Octo Runner with demo token..."
-octo-runner --token demo-token &
-RUNNER_PID=$!
-
-wait
-ENTRYPOINT_EOF
-
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/app/entrypoint.sh"]
+# ------------------------------------------------------------
+# AUTO-RUN PYTEST
+# ------------------------------------------------------------
+#ENTRYPOINT ["python", "-m", "pytest"]
+#CMD ["-v", "smoketest.py"]

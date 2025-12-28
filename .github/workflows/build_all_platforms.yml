@@ -14,9 +14,12 @@ on:
           - linux
 
 env:
-  OCTO_TOKEN: token1
+  OCTO_TOKEN: demo-token
   OCTO_SERVER: http://127.0.0.1:5000
 
+# ============================================================
+# WINDOWS BUILD
+# ============================================================
 jobs:
   build-windows:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
@@ -24,215 +27,272 @@ jobs:
     runs-on: [self-hosted, windows, x64, octo]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Remove old Windows ZIP
-        shell: powershell
-        run: |
-          if (Test-Path "octo-windows.zip") { Remove-Item "octo-windows.zip" -Force }
-
-      - name: Build all Windows components
+      - name: Build Windows components
         shell: powershell
         run: |
           $components = @("client","server","runner")
-          $rootPath = $PWD
-          foreach ($comp in $components) {
-              Write-Host "=============================="
-              Write-Host "Building $comp for Windows"
-              Write-Host "=============================="
-
-              $path = Join-Path $rootPath $comp
-              if (-not (Test-Path $path)) { Write-Error "$path not found!"; exit 1 }
-              Set-Location $path
-
-              if (-not (Test-Path "build_installer.ps1")) { Write-Error "build_installer.ps1 not found"; exit 1 }
-
-              Write-Host "Running build_installer.ps1 for $comp..."
-              & ".\build_installer.ps1"
-              if ($LASTEXITCODE -ne 0) { Write-Error "$comp build failed!"; exit 1 }
-
-              Set-Location $rootPath
+          foreach ($c in $components) {
+            cd $c
+            ./build_installer.ps1
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            cd ..
           }
 
-      - name: Package Windows installers
-        shell: powershell
-        run: |
-          Write-Host "Current directory: $PWD"
-          Write-Host "Listing all files in workspace:"
-          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-          $components = @("client","server","runner")
-          $installerFiles = @()
-
-          foreach ($comp in $components) {
-              Write-Host "Looking for installer for component: $comp"
-              $compPath = Join-Path $PWD $comp
-              $installer = Join-Path $compPath "octo-$comp-0.1-setup.exe"
-              Write-Host "Checking path: $installer"
-
-              if (Test-Path $installer) {
-                  Write-Host "Found installer at: $installer"
-                  $installerFiles += $installer
-              } else {
-                  Write-Error "Expected installer not found: $installer"
-                  exit 1
-              }
-          }
-
-          Write-Host "Found installer files:"
-          $installerFiles | ForEach-Object { Write-Host "- $_" }
-
-          Compress-Archive -Path $installerFiles -DestinationPath "octo-windows.zip" -Force
-          Write-Host "Windows ZIP created with exact installer files."
-
-      - name: Upload Windows ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: octo-windows
-          path: octo-windows.zip
-          retention-days: 30
-
+# ============================================================
+# LINUX BUILD (Octo parallel)
+# ============================================================
   build-linux:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    name: Build Linux Installers (parallel with Octo)
+    name: Build Linux Installers
     runs-on: [self-hosted, windows, x64, octo]
 
+    env:
+      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
+      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ github.run_id }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Clean old artifacts
+      - name: Octo login
         shell: powershell
         run: |
-          if (Test-Path "octo-linux.zip") { Remove-Item "octo-linux.zip" -Force }
-          Remove-Item -Force -ErrorAction Ignore client_build.log, server_build.log, runner_build.log
-
-      - name: Octo login & config
-        shell: powershell
-        run: |
-          chcp 65001 > $null
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker python:3.11
 
-      - name: Run Linux builds in parallel (OS-level concurrency)
+      - name: Build Linux packages in parallel
         shell: powershell
         run: |
-          Write-Host "Starting parallel Octo Linux builds..."
-
           $root = Get-Location
           $jobs = @()
 
-          # CLIENT
-          $jobs += Start-Process powershell.exe -ArgumentList @(
-            '-NoLogo','-NoProfile','-Command',
-            "cd `"$root/client`"; echo 'Client build starting'; octo run ./start_build.sh | Tee-Object `"$root/client_build.log`""
-          ) -PassThru
+          foreach ($c in @("client","server","runner")) {
+            $jobs += Start-Process powershell `
+              -ArgumentList "-Command cd `"$root/$c`"; octo run ./start_build.sh" `
+              -PassThru
+          }
 
-          # SERVER
-          $jobs += Start-Process powershell.exe -ArgumentList @(
-            '-NoLogo','-NoProfile','-Command',
-            "cd `"$root/server`"; echo 'Server build starting'; octo run ./start_build.sh | Tee-Object `"$root/server_build.log`""
-          ) -PassThru
-
-          # RUNNER
-          $jobs += Start-Process powershell.exe -ArgumentList @(
-            '-NoLogo','-NoProfile','-Command',
-            "cd `"$root/runner`"; echo 'Runner build starting'; octo run ./start_build.sh | Tee-Object `"$root/runner_build.log`""
-          ) -PassThru
-
-          Write-Host "Parallel tasks started, waiting for completion..."
           $jobs | Wait-Process
-          Write-Host "All builds finished!"
-
-
-      - name: Show Octo output logs
-        shell: powershell
-        run: |
-          Write-Host "===== CLIENT LOG ====="
-          Get-Content client_build.log
-          Write-Host "===== SERVER LOG ====="
-          Get-Content server_build.log
-          Write-Host "===== RUNNER LOG ====="
-          Get-Content runner_build.log
 
       - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
           Write-Host "Collecting .deb files..."
 
-          $debFiles = Get-ChildItem -Recurse -Filter *.deb
+          if (Test-Path docker_debs) {
+              Remove-Item docker_debs -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
+
+          $debFiles = Get-ChildItem -Recurse -Filter *.deb |
+            Where-Object { $_.FullName -notmatch '\\docker_debs\\' }
+
           if (-not $debFiles) {
               Write-Error "No .deb files found!"
               exit 1
           }
 
-          New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
-
           foreach ($file in $debFiles) {
-              Copy-Item $file.FullName docker_debs/
+              Copy-Item $file.FullName docker_debs -Force
           }
 
-          Write-Host "Copied the following .deb files into docker_debs/:"
           Get-ChildItem docker_debs
 
-      - name: Package docker_debs folder
+      # ------------------------------------------------------------
+      # LOCAL ARTEFACT CACHE (NEW)
+      # ------------------------------------------------------------
+      - name: Cache .deb files locally
         shell: powershell
         run: |
-          Write-Host "Packaging docker_debs/*.deb ..."
+          Write-Host "Caching debs to $env:LOCAL_DEB_CACHE"
 
-          if (-not (Test-Path "docker_debs")) {
-              Write-Error "docker_debs directory missing!"
-              exit 1
+          if (Test-Path $env:LOCAL_DEB_CACHE) {
+            Remove-Item $env:LOCAL_DEB_CACHE -Recurse -Force
           }
 
-          Compress-Archive -Path docker_debs/* -DestinationPath octo-linux.zip -Force
+          New-Item -ItemType Directory -Force -Path $env:LOCAL_DEB_CACHE | Out-Null
+          Copy-Item docker_debs\*.deb $env:LOCAL_DEB_CACHE -Force
 
-          Write-Host "Created octo-linux.zip successfully."
+          Write-Host "Cached debs:"
+          Get-ChildItem $env:LOCAL_DEB_CACHE
 
-
-      - name: Upload Linux ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: octo-linux
-          path: octo-linux.zip
-          retention-days: 30
-
-      - name: Upload build logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: parallel-octo-logs
-          path: |
-            client_build.log
-            server_build.log
-            runner_build.log
-          retention-days: 30
-
-  build-and-test-docker:
-    name: Build Docker Image & Run Smoketest
+# ============================================================
+# DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
+# ============================================================
+  build-docker:
+    name: Build Docker Images
     uses: ./.github/workflows/build_docker.yml
     needs: build-linux
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-    with:
-      image_name: 'octo-test'
-      dockerfile: '.github/docker/Dockerfile.octo-test'
 
-  run-smoketest:
-    name: Run Smoketest
-    uses: ./.github/workflows/run_all_tests_linux.yml
-    needs: build-and-test-docker
-    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
-
-  cleanup:
-    name: Cleanup Artifacts
+# ============================================================
+# SETUP WSL INSTALL NEW OCTO RUNNER + SERVER
+# ============================================================
+  wsl-infra-up:
+    name: Install Octo Server + Runner in WSL
+    needs: build-linux
     runs-on: [self-hosted, windows, x64, octo]
-    needs: [build-windows, build-linux, build-and-test-docker, run-smoketest]
+
+    env:
+      DEB_DIR_WIN: C:\octo\artefacts\${{ github.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Octo in WSL
+        shell: powershell
+        run: |
+          $deb = $env:DEB_DIR_WIN -replace '\\','/'
+          $deb = $deb -replace '^C:', '/mnt/c'
+          Write-Host "WSL deb dir: $deb"
+
+          wsl bash scripts/install-wsl-octo.sh "$deb"
+
+      - name: Verify Octo installation in WSL
+        shell: powershell
+        run: |
+          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
+
+# ============================================================
+# Test Set (PARALLEL, OCTO ORCHESTRATED)
+# ============================================================
+  testset:
+    name: Run Octo Test Set (parallel)
+    runs-on: [self-hosted, windows, x64, octo]
+    needs:
+      - wsl-infra-up
+      - build-docker
+    if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure Octo
+        shell: powershell
+        run: |
+          octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
+          octo config --docker octo-test-base
+      
+      - name: Run tests in parallel via Octo
+        shell: powershell
+        run: |
+          $root = Get-Location
+          $tests = @("smoketest.py", "test_daily.py")
+          $jobs = @()
+          $logfiles = @{}
+          $exitCodeFiles = @{}
+          
+          Write-Host "========================================"
+          Write-Host "Starting $($tests.Count) tests in parallel"
+          Write-Host "========================================"
+          
+          foreach ($test in $tests) {
+            $logfile = "$env:TEMP\octo-test-$test-$((Get-Date).Ticks).log"
+            $exitCodeFile = "$env:TEMP\octo-exit-$test-$((Get-Date).Ticks).txt"
+            $logfiles[$test] = $logfile
+            $exitCodeFiles[$test] = $exitCodeFile
+            
+            $scriptBlock = @"
+          cd '$root/test'
+          octo run $test *>&1 | Tee-Object -FilePath '$logfile'
+          `$LASTEXITCODE | Out-File -FilePath '$exitCodeFile' -NoNewline
+          exit `$LASTEXITCODE
+          "@
+            
+            $job = Start-Process powershell `
+              -ArgumentList "-Command", $scriptBlock `
+              -PassThru `
+              -NoNewWindow
+            
+            $jobs += $job
+            Write-Host "[OK] Started $test (PID: $($job.Id))"
+          }
+          
+          Write-Host ""
+          Write-Host "Waiting for all tests to complete..."
+          Write-Host ""
+          
+          # Warten bis alle fertig sind
+          $jobs | Wait-Process
+          
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "Test Results"
+          Write-Host "========================================"
+          
+          # Logs und Ergebnisse ausgeben
+          $failedTests = @()
+          for ($i = 0; $i -lt $tests.Count; $i++) {
+            $test = $tests[$i]
+            $logfile = $logfiles[$test]
+            $exitCodeFile = $exitCodeFiles[$test]
+            
+            Write-Host ""
+            Write-Host "============================================================"
+            Write-Host "  $test"
+            Write-Host "============================================================"
+            
+            if (Test-Path $logfile) {
+              Get-Content $logfile | Write-Host
+            } else {
+              Write-Host "[WARN] Log file not found: $logfile"
+            }
+            
+            # Exit-Code aus Datei lesen
+            $exitCode = 1
+            if (Test-Path $exitCodeFile) {
+              $exitCode = [int](Get-Content $exitCodeFile -Raw)
+            } else {
+              Write-Host "[WARN] Exit code file not found: $exitCodeFile"
+            }
+            
+            Write-Host ""
+            if ($exitCode -ne 0) {
+              $failedTests += $test
+              Write-Host "[FAIL] $test FAILED (Exit Code: $exitCode)"
+            } else {
+              Write-Host "[PASS] $test PASSED (Exit Code: $exitCode)"
+            }
+          }
+          
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "Summary"
+          Write-Host "========================================"
+          Write-Host "Total tests: $($tests.Count)"
+          Write-Host "Passed: $($tests.Count - $failedTests.Count)"
+          Write-Host "Failed: $($failedTests.Count)"
+          
+          if ($failedTests.Count -gt 0) {
+            Write-Host ""
+            Write-Host "[FAIL] Failed tests:"
+            $failedTests | ForEach-Object { Write-Host "  - $_" }
+            exit 1
+          }
+          
+          Write-Host ""
+          Write-Host "[PASS] All tests passed!"
+
+# ============================================================
+# CLEANUP
+# ============================================================
+  cleanup:
+    name: Cleanup
+    runs-on: [self-hosted, windows, x64, octo]
+    needs:
+      - build-windows
+      - build-linux
+      - testset
     if: always()
 
     steps:
-      - name: Delete .deb files
+      - name: Cleanup old runner cache
         shell: powershell
         run: |
-          Write-Host "Cleaning up .deb files..."
-          Get-ChildItem -Filter *.deb -Force -ErrorAction Ignore | Remove-Item -Force
-          Write-Host "✅ Cleanup complete"
+          $base = "C:\octo\runner-cache\linux"
+          if (Test-Path $base) {
+            Get-ChildItem $base -Directory |
+              Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-14) } |
+              Remove-Item -Recurse -Force
+          }

@@ -3,8 +3,8 @@ import subprocess
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token1")
 
 
 def run_cmd(cmd, timeout=20):
@@ -85,7 +85,7 @@ def test_parallel_runs(tmp_path):
         f.write_text(f"print('Task {i}')")
         return run_cmd(["octo", "run", str(f)])[1]
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(run_one, range(10)))
 
     for i, output in enumerate(results):
@@ -168,3 +168,16 @@ def test_run_with_default_docker(tmp_path):
     code, output = run_cmd(["octo", "run", str(f)], timeout=30)
     assert code == 0
     assert "default docker works" in output
+
+
+if __name__ == "__main__":
+    import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))

@@ -1,62 +1,53 @@
-name: Build Docker Image
+name: Build Docker Test Image
 
 on:
   workflow_dispatch:
-    inputs:
-      image_name:
-        description: 'Docker Image Name'
-        required: false
-        default: 'octo-test'
-      dockerfile:
-        description: 'Dockerfile Path'
-        required: false
-        default: '.github/docker/Dockerfile.octo-test'
-
   workflow_call:
-    inputs:
-      image_name:
-        description: 'Docker Octo Test Image'
-        required: false
-        type: string
-        default: 'octo-test'
-      dockerfile:
-        description: 'Dockerfile Path'
-        required: false
-        type: string
-        default: '.github/docker/Dockerfile.octo-test'
 
 jobs:
   build-docker:
-    name: Build Docker Image
+    name: Build Docker Test Image
     runs-on: [self-hosted, windows, x64, octo]
 
+    env:
+      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+      - uses: actions/checkout@v4
 
-      - name: Build Docker Image
+      # ------------------------------------------------------------
+      # Prepare Docker build context
+      # ------------------------------------------------------------
+      - name: Prepare Docker build context
         shell: powershell
         run: |
-          Write-Host "════════════════════════════════════════"
-          Write-Host "🐳 Baue Docker Image"
-          Write-Host "════════════════════════════════════════"
-          Write-Host "Image Name:  ${{ inputs.image_name }}"
-          Write-Host "Dockerfile:  ${{ inputs.dockerfile }}"
-          Write-Host "════════════════════════════════════════"
-          
+          if (-not (Test-Path $env:CACHE_ROOT)) {
+            Write-Error "Cache not found: $env:CACHE_ROOT"
+            exit 1
+          }
+
+          # Temp-Verzeichnis für .deb Dateien
+          if (-not (Test-Path temp)) { New-Item -ItemType Directory -Force -Path temp | Out-Null }
+
+          Copy-Item "$env:CACHE_ROOT\*.deb" temp -Force -ErrorAction SilentlyContinue
+
+          if (-not (Get-ChildItem temp -Filter *.deb)) {
+            Write-Error "No .deb files found"
+            exit 1
+          }
+
+      # ------------------------------------------------------------
+      # Build Test Image
+      # ------------------------------------------------------------
+      - name: Build octo-test-base
+        shell: powershell
+        run: |
           docker build `
-            -f "${{ inputs.dockerfile }}" `
-            -t "${{ inputs.image_name }}" `
+            --no-cache `
+            --pull `
+            -f ".github/docker/Dockerfile.octo-test" `
+            -t "octo-test-base" `
             .
-          
-          Write-Host ""
-          Write-Host "✅ Docker Image erfolgreich gebaut: ${{ inputs.image_name }}"
-          Write-Host ""
-          Write-Host "Image Informationen:"
-          docker images "${{ inputs.image_name }}" --format "table {{.Repository}}`t{{.Tag}}`t{{.Size}}"
-
-      - name: Test Docker Image
-        shell: powershell
-        run: |
-          Write-Host "🧪 Teste Docker Image..."
-          docker run --rm ${{ inputs.image_name }} echo "✅ Image funktioniert!"

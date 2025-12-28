@@ -220,11 +220,16 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
 # ---------------------------
 
 @cli.command()
-def runner(token: str = typer.Option(..., help="Authentication token")):
+def runner(
+    token: str = typer.Option(..., help="Authentication token"),
+    server: str = typer.Option(None, help="Server URL")  # Neuer Parameter
+):
     typer.echo(ascii_art)
 
     cfg = load_config()
-    server = cfg.get("server", "http://127.0.0.1:5000")
+    
+    if server is None:
+        server = cfg.get("server", "http://127.0.0.1:5000")
 
     save_token(token, server)
     typer.echo(f"🚀 Runner connected to {server} with token {token}")
