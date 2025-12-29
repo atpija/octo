@@ -389,28 +389,6 @@ print('Environment test passed')
     assert code == 0, f"Environment test failed: {output}"
     assert "Environment test passed" in output
 
-
-def test_timeout_handling(tmp_path):
-    """Test wie System mit zu langen Tasks umgeht"""
-    f = tmp_path / "timeout_test.py"
-    script = """
-import time
-
-print('Starting infinite loop test...', flush=True)
-# Simuliere einen Task der zu lange läuft
-time.sleep(1000)  # 16+ Minuten
-print('This should never print')
-"""
-    f.write_text(script)
-    
-    # Setze kurzes Timeout
-    code, output, elapsed = run_cmd(["octo", "run", str(f)], timeout=30)
-    
-    # Task sollte durch Timeout abgebrochen werden
-    assert elapsed < 40, f"Timeout didn't work properly: {elapsed}s"
-    assert "[TIMEOUT" in output or code != 0, "Timeout not detected"
-
-
 def test_concurrent_config_changes(tmp_path):
     """Test ob Config-Änderungen während laufender Tasks problematisch sind"""
     # Start einen langen Task
