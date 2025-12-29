@@ -67,3 +67,17 @@ def test_config_install_toggle():
 
     code, _ = run_cmd(["octo", "config", "--noinstall"])
     assert code == 0
+
+if __name__ == "__main__":
+    import sys
+    
+    # Default pytest args mit besserer Ausgabe
+    args = [
+        "-v",              # verbose
+        "-s",              # show print statements
+        "--tb=short",      # shorter traceback format
+        "--color=yes",     # colored output
+        __file__,
+    ]
+    
+    sys.exit(pytest.main(args))

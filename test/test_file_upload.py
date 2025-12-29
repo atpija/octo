@@ -90,3 +90,17 @@ def test_deeply_nested_download(tmp_path):
         "import os; os.makedirs('x/y/z', exist_ok=True); open('x/y/z/d.txt','w').write('deep')",
         {"x/y/z/d.txt": "deep"},
     )
+
+if __name__ == "__main__":
+    import sys
+    
+    # Default pytest args mit besserer Ausgabe
+    args = [
+        "-v",              # verbose
+        "-s",              # show print statements
+        "--tb=short",      # shorter traceback format
+        "--color=yes",     # colored output
+        __file__,
+    ]
+    
+    sys.exit(pytest.main(args))
