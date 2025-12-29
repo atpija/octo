@@ -2,8 +2,8 @@ import os
 import subprocess
 import pytest
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("DAILY_TOKEN", "demo-token3")
 
 
 def run_cmd(cmd, timeout=20):
@@ -74,3 +74,15 @@ def test_config_install_toggle():
     code, output = run_cmd(["octo", "config", "--noinstall"])
     assert code == 0
     assert "🚫 Auto-Install deactive" in output
+
+if __name__ == "__main__":
+    import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))

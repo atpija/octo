@@ -5,8 +5,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("DAILY_TOKEN", "demo-token")
 
 def run_cmd(cmd, timeout=20):
     """Hilfsfunktion um CLI-Kommandos auszuführen"""
@@ -143,3 +143,15 @@ print('done deep')
     deep_file = tmp_path / "a" / "b" / "c" / "deep.txt"
     assert deep_file.exists(), "deep.txt wurde nicht heruntergeladen"
     assert deep_file.read_text() == "deep content"
+
+if __name__ == "__main__":
+    import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))

@@ -3,8 +3,8 @@ import subprocess
 import pytest
 from pathlib import Path
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("DAILY_TOKEN", "demo-token2")
 
 def run_cmd(cmd, timeout=30):
     """Hilfsfunktion: CLI-Befehl ausführen"""
@@ -84,3 +84,15 @@ def test_run_without_auto_install(tmp_path):
     # Pandas wird nicht installiert → sollte Fehler sein
     assert code != 0
     assert "ModuleNotFoundError" in output or "ImportError" in output
+
+if __name__ == "__main__":
+    import pytest
+    import sys
+
+    # Default pytest args
+    args = [
+        "-v",
+        __file__,
+    ]
+
+    sys.exit(pytest.main(args))
