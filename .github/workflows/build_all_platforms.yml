@@ -177,123 +177,47 @@ jobs:
           wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
 
 # ============================================================
-# Test Set (PARALLEL, OCTO ORCHESTRATED)
+# Test Set (PARALLEL, MATRIX-BASED, VISUALIZED)
 # ============================================================
   testset:
-    name: Run Octo Test Set (parallel)
+    name: Octo Test (${{ matrix.test }})
     runs-on: [self-hosted, windows, x64, octo]
+
     needs:
       - wsl-infra-up
       - build-docker
+
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - smoketest.py
+          - test_daily.py
+          # später einfach erweitern:
+          # - test_api.py
+          # - test_load.py
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure Octo
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker octo-test-base
-      
-      - name: Run tests in parallel via Octo
+
+      - name: Run test ${{ matrix.test }}
         shell: powershell
         run: |
-          $root = Get-Location
-          $tests = @("smoketest.py", "test_daily.py")
-          $jobs = @()
-          $logfiles = @{}
-          $exitCodeFiles = @{}
-          
           Write-Host "========================================"
-          Write-Host "Starting $($tests.Count) tests in parallel"
+          Write-Host "Running test: ${{ matrix.test }}"
           Write-Host "========================================"
-          
-          foreach ($test in $tests) {
-            $logfile = "$env:TEMP\octo-test-$test-$((Get-Date).Ticks).log"
-            $exitCodeFile = "$env:TEMP\octo-exit-$test-$((Get-Date).Ticks).txt"
-            $logfiles[$test] = $logfile
-            $exitCodeFiles[$test] = $exitCodeFile
-            
-            $scriptBlock = @"
-          cd '$root/test'
-          octo run $test *>&1 | Tee-Object -FilePath '$logfile'
-          `$LASTEXITCODE | Out-File -FilePath '$exitCodeFile' -NoNewline
-          exit `$LASTEXITCODE
-          "@
-            
-            $job = Start-Process powershell `
-              -ArgumentList "-Command", $scriptBlock `
-              -PassThru `
-              -NoNewWindow
-            
-            $jobs += $job
-            Write-Host "[OK] Started $test (PID: $($job.Id))"
-          }
-          
-          Write-Host ""
-          Write-Host "Waiting for all tests to complete..."
-          Write-Host ""
-          
-          # Warten bis alle fertig sind
-          $jobs | Wait-Process
-          
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "Test Results"
-          Write-Host "========================================"
-          
-          # Logs und Ergebnisse ausgeben
-          $failedTests = @()
-          for ($i = 0; $i -lt $tests.Count; $i++) {
-            $test = $tests[$i]
-            $logfile = $logfiles[$test]
-            $exitCodeFile = $exitCodeFiles[$test]
-            
-            Write-Host ""
-            Write-Host "============================================================"
-            Write-Host "  $test"
-            Write-Host "============================================================"
-            
-            if (Test-Path $logfile) {
-              Get-Content $logfile | Write-Host
-            } else {
-              Write-Host "[WARN] Log file not found: $logfile"
-            }
-            
-            # Exit-Code aus Datei lesen
-            $exitCode = 1
-            if (Test-Path $exitCodeFile) {
-              $exitCode = [int](Get-Content $exitCodeFile -Raw)
-            } else {
-              Write-Host "[WARN] Exit code file not found: $exitCodeFile"
-            }
-            
-            Write-Host ""
-            if ($exitCode -ne 0) {
-              $failedTests += $test
-              Write-Host "[FAIL] $test FAILED (Exit Code: $exitCode)"
-            } else {
-              Write-Host "[PASS] $test PASSED (Exit Code: $exitCode)"
-            }
-          }
-          
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "Summary"
-          Write-Host "========================================"
-          Write-Host "Total tests: $($tests.Count)"
-          Write-Host "Passed: $($tests.Count - $failedTests.Count)"
-          Write-Host "Failed: $($failedTests.Count)"
-          
-          if ($failedTests.Count -gt 0) {
-            Write-Host ""
-            Write-Host "[FAIL] Failed tests:"
-            $failedTests | ForEach-Object { Write-Host "  - $_" }
-            exit 1
-          }
-          
-          Write-Host ""
-          Write-Host "[PASS] All tests passed!"
+
+          cd test
+          octo run ${{ matrix.test }}
+
 
 # ============================================================
 # CLEANUP
