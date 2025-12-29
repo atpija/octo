@@ -35,16 +35,3 @@ RUN rm -f /tmp/*.deb
 # Workspace + tests
 # ------------------------------------------------------------
 WORKDIR /workspace
-COPY test/smoketest.py /workspace/smoketest.py
-
-# ------------------------------------------------------------
-# Runtime ENV (optional defaults)
-# ------------------------------------------------------------
-#ENV SERVER_URL=http://host.docker.internal:5001
-#ENV SMOKE_TOKEN=demo-token1
-
-# ------------------------------------------------------------
-# AUTO-RUN PYTEST
-# ------------------------------------------------------------
-#ENTRYPOINT ["python", "-m", "pytest"]
-#CMD ["-v", "smoketest.py"]

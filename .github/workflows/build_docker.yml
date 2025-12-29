@@ -1,47 +1,44 @@
 name: Build Docker Test Image
-
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      run_id:
+        required: false
+        type: string
 
 jobs:
   build-docker:
     name: Build Docker Test Image
     runs-on: [self-hosted, windows, x64, octo]
-
     env:
-      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
-
+      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ inputs.run_id || github.run_id }}\linux
     steps:
-      # ------------------------------------------------------------
-      # Checkout
-      # ------------------------------------------------------------
       - uses: actions/checkout@v4
 
-      # ------------------------------------------------------------
-      # Prepare Docker build context
-      # ------------------------------------------------------------
       - name: Prepare Docker build context
         shell: powershell
         run: |
-          if (-not (Test-Path $env:CACHE_ROOT)) {
-            Write-Error "Cache not found: $env:CACHE_ROOT"
+          if (-not (Test-Path $env:LOCAL_DEB_CACHE)) {
+            Write-Error "Cache not found: $env:LOCAL_DEB_CACHE"
             exit 1
           }
-
+          
           # Temp-Verzeichnis für .deb Dateien
-          if (-not (Test-Path temp)) { New-Item -ItemType Directory -Force -Path temp | Out-Null }
-
-          Copy-Item "$env:CACHE_ROOT\*.deb" temp -Force -ErrorAction SilentlyContinue
-
+          if (-not (Test-Path temp)) { 
+            New-Item -ItemType Directory -Force -Path temp | Out-Null 
+          }
+          
+          Copy-Item "$env:LOCAL_DEB_CACHE\*.deb" temp -Force -ErrorAction SilentlyContinue
+          
           if (-not (Get-ChildItem temp -Filter *.deb)) {
-            Write-Error "No .deb files found"
+            Write-Error "No .deb files found in $env:LOCAL_DEB_CACHE"
             exit 1
           }
+          
+          Write-Host "Copied debs:"
+          Get-ChildItem temp -Filter *.deb
 
-      # ------------------------------------------------------------
-      # Build Test Image
-      # ------------------------------------------------------------
       - name: Build octo-test-base
         shell: powershell
         run: |

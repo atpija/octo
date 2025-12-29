@@ -2,7 +2,7 @@
 # client/build_installer.sh
 
 APP_NAME="octo-client"
-VERSION="0.1"
+VERSION="0.2"
 BUILD_DIR="build"
 INSTALL_DIR="$BUILD_DIR/usr/local/bin"
 DEB_DIR="$BUILD_DIR/DEBIAN"

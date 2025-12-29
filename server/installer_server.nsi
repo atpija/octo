@@ -1,6 +1,6 @@
 ; Octo Server Installer (English, same structure as client)
 !define APP_NAME "octo-server"
-!define APP_VERSION "0.1"
+!define APP_VERSION "0.2"
 !define APP_EXE_NAME "octo-server.exe"
 !define COMPANY_NAME "Jan Pirringer"
 !define APP_DESCRIPTION "Octo Server Application"

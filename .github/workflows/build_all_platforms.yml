@@ -25,10 +25,11 @@ jobs:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows' }}
     name: Build Windows Installers
     runs-on: [self-hosted, windows, x64, octo]
-
+    env:
+      LOCAL_EXE_CACHE: C:\octo\artefacts\${{ github.run_id }}\windows
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Build Windows components
         shell: powershell
         run: |
@@ -39,6 +40,40 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit 1 }
             cd ..
           }
+      
+      - name: Collect .exe files into windows_exes/
+        shell: powershell
+        run: |
+          Write-Host "Collecting .exe files..."
+          if (Test-Path windows_exes) {
+            Remove-Item windows_exes -Recurse -Force
+          }
+          New-Item -ItemType Directory -Force -Path windows_exes | Out-Null
+          $exeFiles = Get-ChildItem -Recurse -Filter *.exe |
+            Where-Object { $_.FullName -notmatch '\\windows_exes\\' }
+          if (-not $exeFiles) {
+            Write-Error "No .exe files found!"
+            exit 1
+          }
+          foreach ($file in $exeFiles) {
+            Copy-Item $file.FullName windows_exes -Force
+          }
+          Get-ChildItem windows_exes
+      
+      # ------------------------------------------------------------
+      # LOCAL ARTEFACT CACHE (NEW)
+      # ------------------------------------------------------------
+      - name: Cache .exe files locally
+        shell: powershell
+        run: |
+          Write-Host "Caching exes to $env:LOCAL_EXE_CACHE"
+          if (Test-Path $env:LOCAL_EXE_CACHE) {
+            Remove-Item $env:LOCAL_EXE_CACHE -Recurse -Force
+          }
+          New-Item -ItemType Directory -Force -Path $env:LOCAL_EXE_CACHE | Out-Null
+          Copy-Item windows_exes\*.exe $env:LOCAL_EXE_CACHE -Force
+          Write-Host "Cached exes:"
+          Get-ChildItem $env:LOCAL_EXE_CACHE
 
 # ============================================================
 # LINUX BUILD (Octo parallel)
@@ -47,59 +82,48 @@ jobs:
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
     name: Build Linux Installers
     runs-on: [self-hosted, windows, x64, octo]
-
     env:
-      CACHE_ROOT: C:\octo\runner-cache\linux\${{ github.repository }}\${{ github.ref_name }}
-      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ github.run_id }}
-
+      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ github.run_id }}\linux
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Octo login
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker python:3.11
-
+      
       - name: Build Linux packages in parallel
         shell: powershell
         run: |
           $root = Get-Location
           $jobs = @()
-
           foreach ($c in @("client","server","runner")) {
             $jobs += Start-Process powershell `
               -ArgumentList "-Command cd `"$root/$c`"; octo run ./start_build.sh" `
               -PassThru
           }
-
           $jobs | Wait-Process
-
+      
       - name: Collect .deb files into docker_debs/
         shell: powershell
         run: |
           Write-Host "Collecting .deb files..."
-
           if (Test-Path docker_debs) {
-              Remove-Item docker_debs -Recurse -Force
+            Remove-Item docker_debs -Recurse -Force
           }
-
           New-Item -ItemType Directory -Force -Path docker_debs | Out-Null
-
           $debFiles = Get-ChildItem -Recurse -Filter *.deb |
             Where-Object { $_.FullName -notmatch '\\docker_debs\\' }
-
           if (-not $debFiles) {
-              Write-Error "No .deb files found!"
-              exit 1
+            Write-Error "No .deb files found!"
+            exit 1
           }
-
           foreach ($file in $debFiles) {
-              Copy-Item $file.FullName docker_debs -Force
+            Copy-Item $file.FullName docker_debs -Force
           }
-
           Get-ChildItem docker_debs
-
+      
       # ------------------------------------------------------------
       # LOCAL ARTEFACT CACHE (NEW)
       # ------------------------------------------------------------
@@ -107,14 +131,11 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Caching debs to $env:LOCAL_DEB_CACHE"
-
           if (Test-Path $env:LOCAL_DEB_CACHE) {
             Remove-Item $env:LOCAL_DEB_CACHE -Recurse -Force
           }
-
           New-Item -ItemType Directory -Force -Path $env:LOCAL_DEB_CACHE | Out-Null
           Copy-Item docker_debs\*.deb $env:LOCAL_DEB_CACHE -Force
-
           Write-Host "Cached debs:"
           Get-ChildItem $env:LOCAL_DEB_CACHE
 
