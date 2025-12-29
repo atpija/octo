@@ -12,7 +12,7 @@ jobs:
     name: Build Docker Test Image
     runs-on: [self-hosted, windows, x64, octo]
     env:
-      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ inputs.run_id || github.run_id }}
+      LOCAL_DEB_CACHE: C:\octo\artefacts\${{ inputs.run_id || github.run_id }}\linux
     steps:
       - uses: actions/checkout@v4
 
