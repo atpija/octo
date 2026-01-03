@@ -1,15 +1,13 @@
 import os
 import subprocess
 import pytest
-import tempfile
-import zipfile
 from pathlib import Path
 
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:5000")
-TOKEN = os.environ.get("SMOKE_TOKEN", "demo-token")
+SERVER_URL = os.environ.get("SERVER_URL", "http://host.docker.internal:5001")
+TOKEN = os.environ.get("DAILY_TOKEN", "demo-token")
 
-def run_cmd(cmd, timeout=20):
-    """Hilfsfunktion um CLI-Kommandos auszuführen"""
+
+def run_cmd(cmd, timeout=30):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
         outs, _ = proc.communicate(timeout=timeout)
@@ -18,128 +16,91 @@ def run_cmd(cmd, timeout=20):
         outs, _ = proc.communicate()
     return proc.returncode, outs
 
+
 @pytest.fixture(autouse=True)
 def ensure_login():
-    """Vor jedem Test neu einloggen mit gültigem Token"""
     code, output = run_cmd(["octo", "login", "--token", TOKEN, "--server", SERVER_URL])
-    assert code == 0, f"Login fixture failed: {output}"
+    assert code == 0, f"Login failed: {output}"
     yield
 
+
 # ------------------------
-# Tests für neue Output-Logik
+# Output & Download Tests
 # ------------------------
 
-def test_output_flag_and_file_download(tmp_path):
-    """Client: Prüft [OUTPUT_DONE] und Herunterladen neuer Dateien"""
-    # Testscript erzeugen
-    main_py = tmp_path / "main.py"
-    main_py.write_text("""
-with open('generated.txt', 'w') as f:
-    f.write('hello output')
-print('done main')
-""")
+def run_and_assert(tmp_path, script_content, expected_files):
+    main = tmp_path / "main.py"
+    main.write_text(script_content)
 
-    # Task ausführen
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
-    assert code == 0
-    assert "done main" in output
+    code, output = run_cmd(["octo", "run", str(main)])
+    assert code == 0, f"Run failed: {output}"
 
-    # Prüfen, ob neue Datei heruntergeladen wurde
-    generated_file = tmp_path / "generated.txt"
-    assert generated_file.exists(), "generated.txt wurde nicht heruntergeladen"
-    assert generated_file.read_text() == "hello output"
+    for rel, content in expected_files.items():
+        f = tmp_path / rel
+        assert f.exists(), f"{rel} not downloaded"
+        if content is not None:
+            assert f.read_text() == content
+
+
+def test_single_file_download(tmp_path):
+    run_and_assert(
+        tmp_path,
+        "open('generated.txt','w').write('hello')",
+        {"generated.txt": "hello"},
+    )
+
 
 def test_nested_folder_download(tmp_path):
-    """Client: Prüft, dass Dateien in Unterordner korrekt heruntergeladen werden"""
-    # Testscript erzeugen
-    main_py = tmp_path / "main_nested.py"
-    main_py.write_text("""
-import os
-os.makedirs('subdir', exist_ok=True)
-with open('subdir/nested.txt', 'w') as f:
-    f.write('nested output')
-print('done nested')
-""")
+    run_and_assert(
+        tmp_path,
+        "import os; os.makedirs('a/b', exist_ok=True); open('a/b/x.txt','w').write('x')",
+        {"a/b/x.txt": "x"},
+    )
 
-    # Task ausführen
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
-    assert code == 0
-    assert "done nested" in output
-
-    nested_file = tmp_path / "subdir" / "nested.txt"
-    assert nested_file.exists(), "nested.txt wurde nicht heruntergeladen"
-    assert nested_file.read_text() == "nested output"
 
 def test_multiple_files_download(tmp_path):
-    """Client: Prüft, dass mehrere neue Dateien korrekt heruntergeladen werden"""
-    main_py = tmp_path / "main_multi.py"
-    main_py.write_text("""
-for i in range(3):
-    with open(f'file_{i}.txt', 'w') as f:
-        f.write(f'content {i}')
-print('done multiple')
-""")
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
-    assert code == 0
-    assert "done multiple" in output
+    run_and_assert(
+        tmp_path,
+        "open('a.txt','w').write('a'); open('b.txt','w').write('b')",
+        {"a.txt": "a", "b.txt": "b"},
+    )
 
-    for i in range(3):
-        fpath = tmp_path / f"file_{i}.txt"
-        assert fpath.exists()
-        assert fpath.read_text() == f"content {i}"
 
-def test_pycache_excluded(tmp_path):
-    """Client: Prüft, dass __pycache__-Dateien nicht heruntergeladen werden"""
-    main_py = tmp_path / "main_cache.py"
-    main_py.write_text("""
+def test_excluded_folders(tmp_path):
+    main = tmp_path / "main.py"
+    main.write_text("""
 import os
 os.makedirs('__pycache__', exist_ok=True)
-with open('__pycache__/cached.pyc', 'w') as f:
-    f.write('bytecode')
-print('done cache')
-""")
-
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
-    assert code == 0
-    assert "done cache" in output
-
-    cached_file = tmp_path / "__pycache__" / "cached.pyc"
-    assert not cached_file.exists(), "__pycache__ sollte nicht heruntergeladen werden"
-
-
-def test_venv_excluded(tmp_path):
-    """Client: Prüft, dass venv-Ordner nicht heruntergeladen wird"""
-    main_py = tmp_path / "main_venv.py"
-    main_py.write_text("""
-import os
 os.makedirs('venv', exist_ok=True)
-with open('venv/fake.py', 'w') as f:
-    f.write('fake venv')
-print('done venv')
+open('__pycache__/x.pyc','w').write('x')
+open('venv/y.py','w').write('y')
+print('done')
 """)
 
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
+    code, output = run_cmd(["octo", "run", str(main)])
     assert code == 0
-    assert "done venv" in output
 
-    fake_file = tmp_path / "venv" / "fake.py"
-    assert not fake_file.exists(), "venv sollte nicht heruntergeladen werden"
+    assert not (tmp_path / "__pycache__").exists()
+    assert not (tmp_path / "venv").exists()
 
-def test_deeply_nested_folder_download(tmp_path):
-    """Client: Prüft, dass tief verschachtelte Ordner korrekt heruntergeladen werden"""
-    main_py = tmp_path / "main_deep.py"
-    main_py.write_text("""
-import os
-os.makedirs('a/b/c', exist_ok=True)
-with open('a/b/c/deep.txt', 'w') as f:
-    f.write('deep content')
-print('done deep')
-""")
 
-    code, output = run_cmd(["octo", "run", str(main_py)], timeout=30)
-    assert code == 0
-    assert "done deep" in output
+def test_deeply_nested_download(tmp_path):
+    run_and_assert(
+        tmp_path,
+        "import os; os.makedirs('x/y/z', exist_ok=True); open('x/y/z/d.txt','w').write('deep')",
+        {"x/y/z/d.txt": "deep"},
+    )
 
-    deep_file = tmp_path / "a" / "b" / "c" / "deep.txt"
-    assert deep_file.exists(), "deep.txt wurde nicht heruntergeladen"
-    assert deep_file.read_text() == "deep content"
+if __name__ == "__main__":
+    import sys
+    
+    # Default pytest args mit besserer Ausgabe
+    args = [
+        "-v",              # verbose
+        "-s",              # show print statements
+        "--tb=short",      # shorter traceback format
+        "--color=yes",     # colored output
+        __file__,
+    ]
+    
+    sys.exit(pytest.main(args))

@@ -199,7 +199,7 @@ jobs:
         shell: powershell
         run: |
           $root = Get-Location
-          $tests = @("smoketest.py", "test_daily.py")
+          $tests = @("smoketest.py", "test_daily.py", "test_file_upload.py", "test_docker.py", "test_install_feat.py")
           $jobs = @()
           $logfiles = @{}
           $exitCodeFiles = @{}
