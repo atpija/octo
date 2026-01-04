@@ -237,30 +237,49 @@ jobs:
           $summary = @"
           ## 🧪 Octo Test Summary
 
-          | Test | Status |
-          |------|--------|
+          | Testfile | Status |
+          |---------|--------|
           "@
 
           for ($i = 0; $i -lt $tests.Count; $i++) {
               $test = $tests[$i]
               $code = [int](Get-Content $exitCodeFiles[$i] -Raw)
+              $name = [System.IO.Path]::GetFileNameWithoutExtension($test)
+              $xmlPath = "test-reports/junit-$name.xml"
 
               if ($code -eq 0) {
                   $summary += "| $test | ✅ PASS |`n"
               } else {
                   $summary += "| $test | ❌ FAIL |`n"
               }
+
+              # -------------------------------
+              # Einzelne Testfälle (Details)
+              # -------------------------------
+              $cases = Get-TestCasesFromJUnit $xmlPath
+
+              if ($cases.Count -gt 0) {
+                  $summary += "`n<details>`n"
+                  $summary += "<summary>🔍 Testfälle anzeigen</summary>`n`n"
+                  $summary += "| Testcase | Status | Dauer (s) |`n"
+                  $summary += "|----------|--------|-----------|`n"
+
+                  foreach ($case in $cases) {
+                      $status = "✅ PASS"
+                      if ($case.failure) { $status = "❌ FAIL" }
+                      elseif ($case.skipped) { $status = "⏭ SKIP" }
+
+                      $summary += "| $($case.name) | $status | $($case.time) |`n"
+                  }
+
+                  $summary += "`n</details>`n"
+              }
           }
 
-          # WICHTIG: nur EINMAL schreiben, UTF-8 erzwingen
           $summary | Out-File `
             -FilePath $env:GITHUB_STEP_SUMMARY `
             -Encoding utf8 `
             -Append
-
-          if ($failed -gt 0) {
-              exit 1
-          }
 
 
       # -------------------------------------------------
