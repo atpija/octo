@@ -297,19 +297,18 @@ jobs:
             -Encoding utf8 `
             -Append
 
-
-            # -------------------------------------------------
-            # Upload Reports (7 Tage)
-            # -------------------------------------------------
-            - name: Upload pytest reports
-              if: always()
-              uses: actions/upload-artifact@v4
-              with:
-                name: pytest-reports
-                retention-days: 7
-                path: |
-                  test/test-reports/*.xml
-                  test/test-reports/*.html
+      # -------------------------------------------------
+      # Upload Reports (7 Tage)
+      # -------------------------------------------------
+      - name: Upload pytest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-reports
+          retention-days: 7
+          path: |
+            test/test-reports/*.xml
+            test/test-reports/*.html
 
 # ============================================================
 # CLEANUP
