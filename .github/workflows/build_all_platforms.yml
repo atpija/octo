@@ -199,6 +199,36 @@ jobs:
       - name: Run tests in parallel via Octo
         shell: powershell
         run: |
+          # Funktion zum Parsen von JUnit XML
+          function Get-TestCasesFromJUnit {
+              param([string]$xmlPath)
+              
+              if (-not (Test-Path $xmlPath)) {
+                  return @()
+              }
+              
+              try {
+                  [xml]$xml = Get-Content $xmlPath -Raw -Encoding UTF8
+                  $cases = @()
+                  
+                  foreach ($testcase in $xml.testsuites.testsuite.testcase) {
+                      $cases += [PSCustomObject]@{
+                          name    = $testcase.name
+                          time    = $testcase.time
+                          failure = $testcase.failure
+                          skipped = $testcase.skipped
+                      }
+                  }
+                  
+                  return $cases
+              }
+              catch {
+                  Write-Warning "Could not parse JUnit XML: $xmlPath"
+                  return @()
+              }
+          }
+          
+          # Hauptlogik
           $root = Get-Location
           $tests = @(
             "smoketest.py",
