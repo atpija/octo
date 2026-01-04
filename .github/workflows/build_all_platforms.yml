@@ -186,114 +186,91 @@ jobs:
       - wsl-infra-up
       - build-docker
     if: ${{ github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux' }}
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure Octo
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
           octo config --docker octo-test-base
-      
+
       - name: Run tests in parallel via Octo
         shell: powershell
         run: |
           $root = Get-Location
-          $tests = @("smoketest.py", "test_daily.py", "test_file_upload.py", "test_docker.py", "test_install_feat.py")
+          $tests = @(
+            "smoketest.py",
+            "test_daily.py",
+            "test_file_upload.py",
+            "test_docker.py",
+            "test_install_feat.py"
+          )
+
           $jobs = @()
-          $logfiles = @{}
-          $exitCodeFiles = @{}
-          
-          Write-Host "========================================"
-          Write-Host "Starting $($tests.Count) tests in parallel"
-          Write-Host "========================================"
-          
+          $exitCodeFiles = @()
+
+          New-Item -ItemType Directory -Force test-reports | Out-Null
+
           foreach ($test in $tests) {
-            $logfile = "$env:TEMP\octo-test-$test-$((Get-Date).Ticks).log"
-            $exitCodeFile = "$env:TEMP\octo-exit-$test-$((Get-Date).Ticks).txt"
-            $logfiles[$test] = $logfile
-            $exitCodeFiles[$test] = $exitCodeFile
-            
-            $scriptBlock = @"
+            $exitFile = "$env:TEMP\exit-$test.txt"
+            $exitCodeFiles += $exitFile
+
+            $script = @"
           cd '$root/test'
-          octo run $test *>&1 | Tee-Object -FilePath '$logfile'
-          `$LASTEXITCODE | Out-File -FilePath '$exitCodeFile' -NoNewline
+          octo run $test
+          `$LASTEXITCODE | Out-File '$exitFile' -NoNewline
           exit `$LASTEXITCODE
           "@
-            
-            $job = Start-Process powershell `
-              -ArgumentList "-Command", $scriptBlock `
-              -PassThru `
-              -NoNewWindow
-            
-            $jobs += $job
-            Write-Host "[OK] Started $test (PID: $($job.Id))"
+
+            $jobs += Start-Process powershell `
+              -ArgumentList "-Command", $script `
+              -NoNewWindow `
+              -PassThru
           }
-          
-          Write-Host ""
-          Write-Host "Waiting for all tests to complete..."
-          Write-Host ""
-          
-          # Warten bis alle fertig sind
+
           $jobs | Wait-Process
-          
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "Test Results"
-          Write-Host "========================================"
-          
-          # Logs und Ergebnisse ausgeben
-          $failedTests = @()
+
+          # -------------------------------
+          # GitHub Job Summary
+          # -------------------------------
+          $summary = @"
+          ## 🧪 Octo Test Summary
+
+          | Test | Status |
+          |------|--------|
+          "@
+
+          $failed = 0
           for ($i = 0; $i -lt $tests.Count; $i++) {
-            $test = $tests[$i]
-            $logfile = $logfiles[$test]
-            $exitCodeFile = $exitCodeFiles[$test]
-            
-            Write-Host ""
-            Write-Host "============================================================"
-            Write-Host "  $test"
-            Write-Host "============================================================"
-            
-            if (Test-Path $logfile) {
-              Get-Content $logfile | Write-Host
+            $code = [int](Get-Content $exitCodeFiles[$i] -Raw)
+            if ($code -eq 0) {
+              $summary += "| $($tests[$i]) | ✅ PASS |\n"
             } else {
-              Write-Host "[WARN] Log file not found: $logfile"
-            }
-            
-            # Exit-Code aus Datei lesen
-            $exitCode = 1
-            if (Test-Path $exitCodeFile) {
-              $exitCode = [int](Get-Content $exitCodeFile -Raw)
-            } else {
-              Write-Host "[WARN] Exit code file not found: $exitCodeFile"
-            }
-            
-            Write-Host ""
-            if ($exitCode -ne 0) {
-              $failedTests += $test
-              Write-Host "[FAIL] $test FAILED (Exit Code: $exitCode)"
-            } else {
-              Write-Host "[PASS] $test PASSED (Exit Code: $exitCode)"
+              $summary += "| $($tests[$i]) | ❌ FAIL |\n"
+              $failed++
             }
           }
-          
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "Summary"
-          Write-Host "========================================"
-          Write-Host "Total tests: $($tests.Count)"
-          Write-Host "Passed: $($tests.Count - $failedTests.Count)"
-          Write-Host "Failed: $($failedTests.Count)"
-          
-          if ($failedTests.Count -gt 0) {
-            Write-Host ""
-            Write-Host "[FAIL] Failed tests:"
-            $failedTests | ForEach-Object { Write-Host "  - $_" }
+
+          $summary | Out-File -Append $env:GITHUB_STEP_SUMMARY
+
+          if ($failed -gt 0) {
             exit 1
           }
-          
-          Write-Host ""
-          Write-Host "[PASS] All tests passed!"
+
+      # -------------------------------------------------
+      # Upload Reports (7 Tage)
+      # -------------------------------------------------
+      - name: Upload pytest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-reports
+          retention-days: 7
+          path: |
+            test/test-reports/*.xml
+            test/test-reports/*.html
 
 # ============================================================
 # CLEANUP
