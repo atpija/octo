@@ -235,7 +235,7 @@ jobs:
           # GitHub Job Summary
           # -------------------------------
           $summary = @"
-          ## 🧪 Octo Test Summary
+          ## Octo Test Summary
 
           | Testfile | Status |
           |---------|--------|
@@ -260,8 +260,8 @@ jobs:
 
               if ($cases.Count -gt 0) {
                   $summary += "`n<details>`n"
-                  $summary += "<summary>🔍 Testfälle anzeigen</summary>`n`n"
-                  $summary += "| Testcase | Status | Dauer (s) |`n"
+                  $summary += "<summary>Testcase Overview</summary>`n`n"
+                  $summary += "| Testcase | Status | Duration (s) |`n"
                   $summary += "|----------|--------|-----------|`n"
 
                   foreach ($case in $cases) {
