@@ -422,15 +422,22 @@ def test_concurrent_config_changes(tmp_path):
 
 if __name__ == "__main__":
     import sys
-    
-    # pytest args mit besserer Ausgabe
+    from pathlib import Path
+
+    report_dir = Path("test-reports")
+    report_dir.mkdir(exist_ok=True)
+
+    test_name = Path(__file__).stem
+
     args = [
-        "-v",                # verbose
-        "-s",                # show print statements  
-        "--tb=short",        # shorter traceback
-        "--color=yes",       # colored output
-        "--durations=10",    # show 10 slowest tests
+        "-v",
+        "-s",
+        "--tb=short",
+        "--color=yes",
+        f"--junitxml={report_dir}/junit-{test_name}.xml",
+        f"--html={report_dir}/report-{test_name}.html",
+        "--self-contained-html",
         __file__,
     ]
-    
+
     sys.exit(pytest.main(args))

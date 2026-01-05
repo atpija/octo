@@ -22,7 +22,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # ------------------------------------------------------------
 # Python test deps
 # ------------------------------------------------------------
-RUN pip install --upgrade pip setuptools wheel pytest
+RUN pip install --upgrade pip setuptools wheel pytest pytest-html
 
 # ------------------------------------------------------------
 # Install Octo CLIENT only

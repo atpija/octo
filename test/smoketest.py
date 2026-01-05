@@ -277,14 +277,22 @@ print('Line 3')
 
 if __name__ == "__main__":
     import sys
-    
-    # Default pytest args mit besserer Ausgabe
+    from pathlib import Path
+
+    report_dir = Path("test-reports")
+    report_dir.mkdir(exist_ok=True)
+
+    test_name = Path(__file__).stem
+
     args = [
-        "-v",              # verbose
-        "-s",              # show print statements
-        "--tb=short",      # shorter traceback format
-        "--color=yes",     # colored output
+        "-v",
+        "-s",
+        "--tb=short",
+        "--color=yes",
+        f"--junitxml={report_dir}/junit-{test_name}.xml",
+        f"--html={report_dir}/report-{test_name}.html",
+        "--self-contained-html",
         __file__,
     ]
-    
+
     sys.exit(pytest.main(args))
