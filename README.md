@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="octo_logo.png" alt="Octo Logo" width="200">
+</div>
+
 # Octo - Remote Code Execution Platform
 
 [![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
