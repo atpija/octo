@@ -10,7 +10,7 @@
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
 
-## 🚀 Key Features
+## Key Features
 
 - **Multi-Language Support**: Python, JavaScript, Go, Rust, Ruby, and more
 - **Client-Server Architecture**: Distributed execution with token-based authentication
@@ -19,7 +19,7 @@ Octo is a distributed remote code execution platform that enables seamless execu
 - **Real-time Output Streaming**: Monitor execution as it happens
 - **Simple CLI**: Easy-to-use command-line interface
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
@@ -30,7 +30,7 @@ Octo is a distributed remote code execution platform that enables seamless execu
 - [Configuration](#configuration)
 - [License](#license)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.11 or higher
@@ -57,7 +57,7 @@ octo run main.py
 octo config --help
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 Octo consists of three main components:
 
@@ -72,7 +72,7 @@ Octo consists of three main components:
 - **Server**: Manages task queue and credentials
 - **Runner**: Executes tasks in Docker containers
 
-## 💻 Usage
+## Usage
 
 ### Client Commands
 
@@ -155,7 +155,7 @@ octo-runner --token runner2 --server http://server:5000 &
 octo-runner --token runner3 --server http://server:5000 &
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Configuration is stored in `~/.remotecompute/config.json`:
 
@@ -186,7 +186,7 @@ The runner automatically selects Docker images based on file type:
 
 Override with: `octo config --docker IMAGE_NAME`
 
-## 📦 Project Structure
+## Project Structure
 
 ```
 octo/
@@ -197,16 +197,16 @@ octo/
 └── scripts/     # Utilities
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the Custom Octo License. See [LICENSE](LICENSE) file for details.
 
 **Key Terms:**
-- ✅ Free for personal, research, commercial, and educational use
-- ✅ Modify and distribute in binary form for non-commercial use
-- ✅ Include in larger systems
-- ❌ Cannot sell or redistribute source code commercially
-- ❌ Cannot remove copyright notices
+- Free for personal, research, commercial, and educational use
+- Modify and distribute in binary form for non-commercial use
+- Include in larger systems
+- Cannot sell or redistribute source code commercially
+- Cannot remove copyright notices
 
 - **Project Lead**: Jan Pirringer
 - **Email**: help@project-octo.com
