@@ -174,7 +174,7 @@ def download_output(task_id):
 @cli.command()
 def server(host: str = "0.0.0.0", port: int = 5000):
     typer.echo(ascii_art)
-    typer.echo("🚀 Starting Octo Server...")
+    typer.secho(f"{typer.style('[SERVER]', fg='cyan', bold=True)} Starting Octo Server...")
     app.run(host=host, port=port)
 
 @cli.command()
@@ -183,19 +183,19 @@ def token_add(token: str):
     if token not in cfg["valid_tokens"]:
         cfg["valid_tokens"].append(token)
         save_config(cfg)
-        typer.echo(f"✅ Token added: {token}")
+        typer.secho(f"{typer.style('[OK]', fg='green')} Token added: {token}")
     else:
-        typer.echo("ℹ️ Token already exists")
+        typer.secho(f"{typer.style('[INFO]', fg='yellow')} Token already exists")
 
 @cli.command()
 def token_list():
     cfg = load_config()
     tokens = cfg.get("valid_tokens", [])
     if tokens:
-        typer.echo("🔐 Valid Tokens:")
-        for t in tokens: typer.echo(f"- {t}")
+        typer.secho(f"{typer.style('[LIST]', fg='blue', bold=True)} Valid Tokens:", bold=True)
+        for t in tokens: typer.secho(f"{typer.style('-', fg='blue')} {t}")
     else:
-        typer.echo("ℹ️ No tokens configured.")
+        typer.secho(f"{typer.style('[INFO]', fg='yellow')} No tokens configured.")
 
 @cli.command()
 def token_remove(token: str):
@@ -203,9 +203,9 @@ def token_remove(token: str):
     if token in cfg.get("valid_tokens", []):
         cfg["valid_tokens"].remove(token)
         save_config(cfg)
-        typer.echo(f"✅ Token removed: {token}")
+        typer.secho(f"{typer.style('[OK]', fg='green')} Token removed: {token}")
     else:
-        typer.echo(f"❌ Token not found: {token}")
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Token not found: {token}")
 
 if __name__ == "__main__":
     cli()

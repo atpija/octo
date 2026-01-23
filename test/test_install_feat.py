@@ -32,7 +32,7 @@ def test_config_install_flag():
     """Config: docker image setzen mit --install"""
     code, output = run_cmd(["octo", "config", "--docker", "python:3.11", "--install"])
     assert code == 0
-    assert "auto_install" in output or "🐳" in output
+    assert "auto_install" in output or "[CONFIG]" in output
 
     code, output = run_cmd(["octo", "config", "--show"])
     assert code == 0

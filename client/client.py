@@ -83,7 +83,7 @@ def login(token: str = typer.Option(..., help="Auth-Token vom Server"),
     """saves Config (Token + Server)."""
     cfg = {"token": token, "server": server, "docker_image": "python:3.11"}
     save_config(cfg)
-    typer.echo("✅ Configuration saved.")
+    typer.secho(f"{typer.style('[OK]', fg='green')} Configuration saved.")
 
 @app.command()
 def run(path: str = typer.Argument(..., help="specify your main file (main.py/main.c etc.)")):
@@ -118,12 +118,13 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
     os.remove(archive)
 
     if not res.ok:
-        typer.echo("❌ Error while submitting:")
-        print(res.text)
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Error while submitting:")
+        typer.secho(res.text, fg='red')
         sys.exit(1)
 
     task_id = res.json()["task_id"]
-    typer.echo(f"🚀 Task submitted: {task_id}\n📡 Waiting for Live-Output...\n")
+    typer.secho(f"{typer.style('[SUBMIT]', fg='cyan')} Task submitted: {task_id}")
+    typer.secho(f"{typer.style('[WAIT]', fg='yellow')} Waiting for Live-Output...\n")
 
     # --- Live-Output streamen ---
     task_done = False
@@ -136,11 +137,11 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
             msg = line.decode().strip()
 
             if msg == "[TASK_FAILED]":
-                print("❌ Task failed")
+                typer.secho(f"{typer.style('[ERROR]', fg='red')} Task failed")
                 sys.exit(1)
 
             elif msg == "[OUTPUT_DONE]":
-                print("📦 Output ZIP uploaded by Runner, downloading...")
+                typer.secho(f"{typer.style('[INFO]', fg='blue')} Output ZIP uploaded by Runner, downloading...")
                 try:
                     out_res = requests.get(f"{cfg['server']}/download_output/{task_id}", stream=True)
                     if out_res.status_code == 200:
@@ -151,23 +152,23 @@ def run(path: str = typer.Argument(..., help="specify your main file (main.py/ma
 
                         # Entpacken ins Projektverzeichnis, Unterordner erstellen falls nötig
                         with zipfile.ZipFile(tmp_zip.name, "r") as zf:
-                            print("📦 Output ZIP contains:")
+                            typer.secho(f"{typer.style('[LIST]', fg='blue')} Output ZIP contains:")
                             for f in zf.namelist():
-                                print(" -", f)
+                                typer.secho(f"{typer.style('-', fg='blue')} {f}")
                                 target_path = os.path.join(project_dir, f)
                                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                                 with open(target_path, "wb") as out_f:
                                     out_f.write(zf.read(f))
                         os.remove(tmp_zip.name)
-                        print("✅ New/changed files downloaded from Runner.")
+                        typer.secho(f"{typer.style('[OK]', fg='green')} New/changed files downloaded from Runner.")
                         output_done = True
                     else:
-                        print("ℹ️ No output ZIP found from Runner.")
+                        typer.secho(f"{typer.style('[INFO]', fg='yellow')} No output ZIP found from Runner.")
                 except Exception as e:
-                    print(f"❌ Error downloading output ZIP: {e}")
+                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Error downloading output ZIP: {e}")
 
             elif msg == "[TASK_DONE]":
-                print("✅ Task finished successfully")
+                typer.secho(f"{typer.style('[OK]', fg='green')} Task finished successfully")
                 task_done = True
 
             else:
@@ -193,38 +194,40 @@ def config(
 
     if docker:
         cfg["docker_image"] = docker
-        typer.echo(f"🐳 Docker-Image set: {docker}")
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} Docker-Image set: {docker}")
         changed = True
     if install is not None:
         cfg["auto_install"] = install
-        typer.echo("📦 Auto-Install active" if install else "🚫 Auto-Install deactive")
+        msg = "Auto-Install active" if install else "Auto-Install deactive"
+        color = "green" if install else "yellow"
+        typer.secho(f"{typer.style('[CONFIG]', fg=color)} {msg}")
         changed = True
     if gpu is not None:
         cfg["gpu"] = gpu
-        typer.echo(f"🎮 GPU set: {gpu}")
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} GPU set: {gpu}")
         changed = True
     if ram is not None:
         cfg["ram"] = ram
-        typer.echo(f"🧠 RAM set: {ram}")
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} RAM set: {ram}")
         changed = True
     if cpu is not None:
         cfg["cpu"] = cpu
-        typer.echo(f"⚙️ CPU set: {cpu}")
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} CPU set: {cpu}")
         changed = True
     if shm_size is not None:
         cfg["shm_size"] = shm_size
-        typer.echo(f"📂 Shared Memory set: {shm_size}")
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} Shared Memory set: {shm_size}")
         changed = True
 
     if changed:
         save_config(cfg)
 
     if show:
-        typer.echo("⚙️ Active Config:")
-        typer.echo(json.dumps(cfg, indent=2))
+        typer.secho(f"{typer.style('[CONFIG]', fg='cyan')} Active Config:")
+        typer.secho(json.dumps(cfg, indent=2), fg='blue')
 
     if not (docker or install is not None or gpu or ram or cpu or shm_size or show):
-        typer.echo("ℹ️ Options: --docker IMAGE | --install/--noinstall | --gpu OPT | --ram OPT | --cpu OPT | --shm-size OPT | --show")
+        typer.secho(f"{typer.style('[INFO]', fg='yellow')} Options: --docker IMAGE | --install/--noinstall | --gpu OPT | --ram OPT | --cpu OPT | --shm-size OPT | --show")
 
 if __name__ == "__main__":
     app()
