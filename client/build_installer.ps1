@@ -11,5 +11,6 @@ pyinstaller --onefile --icon=logo.ico client.py --name octo
 # Build Installer
 makensis installer_client.nsi
 
-Write-Host "✅ Client build completed!"
+Write-Host "[SUCCESS]" -ForegroundColor Green -NoNewline
+Write-Host " Client build completed!"
 

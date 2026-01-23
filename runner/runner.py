@@ -118,7 +118,7 @@ def poll_task(server, token):
                     task["archive_file"] = tmp.name
                     return task
     except Exception as e:
-        print(f"❌ Error while polling task: {e}")
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Error while polling task: {e}")
     return None
 
 def send_output(server, task_id, line):
@@ -126,7 +126,7 @@ def send_output(server, task_id, line):
     try:
         requests.post(f"{server}/submit_output/{task_id}", json={"line": line})
     except Exception as e:
-        print(f"❌ Error while sending output: {e}")
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Error while sending output: {e}")
 
 def zip_new_files(workdir, orig_files):
     exclude_dirs = {"venv", ".local", "__pycache__", "node_modules", "target", ".git"}
@@ -251,7 +251,7 @@ def runner(
             file_ext = os.path.splitext(entry_file)[1].lower()
             
             if file_ext not in FILE_TYPE_CONFIG:
-                print(f"❌ Unsupported file type: {file_ext}")
+                typer.secho(f"{typer.style('[ERROR]', fg='red')} Unsupported file type: {file_ext}")
                 send_output(server, task_id, f"[RUNNER ERROR] Unsupported file type: {file_ext}")
                 send_output(server, task_id, "[TASK_FAILED]")
                 continue
@@ -261,7 +261,7 @@ def runner(
             # Determine Docker image (task can override default)
             docker_image = task.get("docker_image") or file_config['default_image']
 
-            print(f"⚡ Running Task {task_id} ({file_ext} file) using image {docker_image}")
+            typer.secho(f"{typer.style('[RUN]', fg='cyan')} Running Task {task_id} ({file_ext} file) using image {docker_image}")
 
             try:
                 # ZIP entpacken
@@ -269,7 +269,7 @@ def runner(
                 with zipfile.ZipFile(archive_file, "r") as zf:
                     zf.extractall(workdir)
 
-                print("📦 Archive extracted to:", workdir)
+                typer.secho(f"{typer.style('[INFO]', fg='blue')} Archive extracted to: {workdir}")
                 main_path = os.path.join(workdir, entry_file)
 
                 if not os.path.exists(main_path):
@@ -311,7 +311,7 @@ def runner(
                 exec_cmd = build_execution_command(entry_file, workdir, auto_install, file_ext, file_config)
                 docker_cmd.extend(exec_cmd)
 
-                print(f"🐳 Running: {' '.join(docker_cmd)}")
+                typer.secho(f"{typer.style('[DOCKER]', fg='cyan')} Running: {' '.join(docker_cmd)}")
 
                 proc = subprocess.Popen(
                     docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8"
@@ -327,21 +327,21 @@ def runner(
                         requests.post(f"{server}/submit_output_zip/{task_id}", files={"archive": f})
                         send_output(server, task_id, "[OUTPUT_DONE]")
                     except Exception as e:
-                        print(f"❌ Error sending output zip: {e}")
+                        typer.secho(f"{typer.style('[ERROR]', fg='red')} Error sending output zip: {e}")
                 os.remove(output_zip)
 
                 if proc.returncode == 0:
                     send_output(server, task_id, "[TASK_DONE]")
-                    print("✅ Task done")
+                    typer.secho(f"{typer.style('[OK]', fg='green')} Task done")
                 else:
                     send_output(server, task_id, f"[RUNNER ERROR] Process exited with {proc.returncode}")
                     send_output(server, task_id, "[TASK_FAILED]")
-                    print(f"❌ Process exited with {proc.returncode}")
+                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Process exited with {proc.returncode}")
 
             except Exception as e:
                 send_output(server, task_id, f"[RUNNER ERROR] {e}")
                 send_output(server, task_id, "[TASK_FAILED]")
-                print(f"❌ Exception: {e}")
+                typer.secho(f"{typer.style('[ERROR]', fg='red')} Exception: {e}")
             finally:
                 if os.path.exists(archive_file):
                     os.remove(archive_file)

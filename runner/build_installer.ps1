@@ -11,5 +11,6 @@ pyinstaller --onefile --icon=logo.ico runner.py --name octo-runner
 # Build Installer
 makensis installer_runner.nsi
 
-Write-Host "✅ Runner build completed!"
+Write-Host "[SUCCESS]" -ForegroundColor Green -NoNewline
+Write-Host " Runner build completed!"
 

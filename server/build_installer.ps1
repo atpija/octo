@@ -11,5 +11,6 @@ pyinstaller --onefile --icon=logo.ico server.py --name octo-server
 # Build Installer
 makensis installer_server.nsi
 
-Write-Host "✅ Server build completed!"
+Write-Host "[SUCCESS]" -ForegroundColor Green -NoNewline
+Write-Host " Server build completed!"
 

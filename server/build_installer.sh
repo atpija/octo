@@ -30,5 +30,5 @@ EOF
 
 # Paket bauen
 dpkg-deb --build "$BUILD_DIR" "${APP_NAME}_${VERSION}_amd64.deb"
-echo "✅ Server Installer gebaut: ${APP_NAME}_${VERSION}_amd64.deb"
+echo -e "\033[0;32m[SUCCESS]\033[0m Server Installer gebaut: ${APP_NAME}_${VERSION}_amd64.deb"
 
