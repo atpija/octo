@@ -37,7 +37,7 @@ def test_login():
     """Client: octo login"""
     code, output = run_cmd(["octo", "login", "--token", TOKEN, "--server", SERVER_URL])
     assert code == 0, f"Login failed: {output}"
-    assert "✅" in output or "success" in output.lower(), "No success message in output"
+    assert "[OK]" in output, "No success message in output"
 
 
 def test_run_basic(tmp_path):
@@ -182,7 +182,7 @@ def test_config_show_and_set(tmp_path):
     # Setze Custom Image
     code, output = run_cmd(["octo", "config", "--docker", "python:3.12"])
     assert code == 0, f"Config set failed: {output}"
-    assert "python:3.12" in output or "✅" in output
+    assert "python:3.12" in output or "[CONFIG]" in output
 
     # Zeige Config an
     code, output = run_cmd(["octo", "config", "--show"])
