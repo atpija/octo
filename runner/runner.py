@@ -232,7 +232,7 @@ def runner(
         server = cfg.get("server", "http://127.0.0.1:5000")
 
     save_token(token, server)
-    typer.echo(f"🚀 Runner connected to {server} with token {token}")
+    typer.secho(f"{typer.style('[CONNECT]', fg='cyan')} Runner connected to {server} with token {token}")
 
     while True:
         task = poll_task(server, token)

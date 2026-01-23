@@ -174,7 +174,7 @@ def download_output(task_id):
 @cli.command()
 def server(host: str = "0.0.0.0", port: int = 5000):
     typer.echo(ascii_art)
-    typer.secho("[SERVER] Starting Octo Server...", fg="cyan", bold=True)
+    typer.secho(f"{typer.style('[SERVER]', fg='cyan', bold=True)} Starting Octo Server...")
     app.run(host=host, port=port)
 
 @cli.command()
