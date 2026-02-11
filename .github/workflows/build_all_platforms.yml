@@ -91,7 +91,7 @@ jobs:
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11
+          octo config --docker octo_build_env:latest
       
       - name: Build Linux packages in parallel
         shell: powershell
