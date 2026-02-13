@@ -74,6 +74,17 @@ jobs:
           Copy-Item windows_exes\*.exe $env:LOCAL_EXE_CACHE -Force
           Write-Host "Cached exes:"
           Get-ChildItem $env:LOCAL_EXE_CACHE
+      
+      # -------------------------------------------------
+      # Upload Artefacts (7 Tage)
+      # -------------------------------------------------
+      - name: Upload Octo Windows packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octo-windows-packages
+          retention-days: 7
+          path: windows_exes/
 
 # ============================================================
 # LINUX BUILD (Octo parallel)
@@ -91,7 +102,7 @@ jobs:
         shell: powershell
         run: |
           octo login --token $env:OCTO_TOKEN --server $env:OCTO_SERVER
-          octo config --docker python:3.11
+          octo config --docker octo_build_env:latest
       
       - name: Build Linux packages in parallel
         shell: powershell
@@ -138,6 +149,17 @@ jobs:
           Copy-Item docker_debs\*.deb $env:LOCAL_DEB_CACHE -Force
           Write-Host "Cached debs:"
           Get-ChildItem $env:LOCAL_DEB_CACHE
+      
+      # -------------------------------------------------
+      # Upload Artefacts (7 Tage)
+      # -------------------------------------------------
+      - name: Upload Octo Linux packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: octo-linux-packages
+          retention-days: 7
+          path: docker_debs/
 
 # ============================================================
 # DOCKER IMAGE BUILD (INFRA + TEST BASE PARALLEL)
