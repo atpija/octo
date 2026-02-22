@@ -1,15 +1,34 @@
 #!/bin/bash
 set -e
 
-VERSION="0.2.0"
-BASE_URL="https://github.com/atpija/octo/releases/download/v${VERSION}"
+BASE_URL="https://www.project-octo.com/download"
 
-echo "Installing Octo Server v${VERSION}..."
+echo "Fetching latest Octo version..."
 
-curl -LO "$BASE_URL/octo-server_${VERSION}_amd64.deb"
+VERSION=$(curl -fsSL "$BASE_URL/latest.txt")
 
-sudo dpkg -i octo-server_${VERSION}_amd64.deb
+if [ -z "$VERSION" ]; then
+    echo "Error: Could not determine latest version."
+    exit 1
+fi
 
-rm octo-server_${VERSION}_amd64.deb
+PACKAGE="octo-server_${VERSION}_amd64.deb"
+DOWNLOAD_URL="$BASE_URL/v${VERSION}/$PACKAGE"
+HASH_URL="$DOWNLOAD_URL.sha256"
 
-echo "Octo Server installed."
+echo "Downloading $PACKAGE..."
+
+curl -fL -o "$PACKAGE" "$DOWNLOAD_URL"
+curl -fL -o "$PACKAGE.sha256" "$HASH_URL"
+
+echo "Verifying package integrity..."
+
+sha256sum -c "$PACKAGE.sha256"
+
+echo "Installing..."
+
+sudo dpkg -i "$PACKAGE"
+
+rm "$PACKAGE" "$PACKAGE.sha256"
+
+echo "Octo Server v${VERSION} installed successfully."
