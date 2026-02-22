@@ -4,9 +4,9 @@
 
 # Octo - Remote Code Execution Platform
 
-[![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-yellow.svg)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/docker-required-green.svg)](https://www.docker.com/)
+[![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
 
