@@ -5,8 +5,8 @@
 # Octo - Remote Code Execution Platform
 
 [![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-yellow.svg)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/docker-required-green.svg)](https://www.docker.com/)
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
 
@@ -38,15 +38,42 @@ Octo is a distributed remote code execution platform that enables seamless execu
 - pip package manager
 
 ### Installation
-
 ```bash
 # Clone the repository
 git clone https://github.com/atpija/octo
 
+### Getting Started
+# Build each Component
+
+cd client
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+cd server
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+cd runner
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+# Install each Component
+sudo dpkg -i octo-xy.deb (Linux)
+
+Run the setup.exe for each Component (Windows)
+```
 
 ### Basic Usage
-
+You can run Octo local also for test purpose, start server and runner in a seperate Terminal/Powershell window.
 ```bash
+# First add a token
+octo-server token-add token123
+# Run the Server
+octo-server server
+
+# Start the Runner in a seperate Terminal/Powershell
+octo-runner --token token123
+
 # Login to server
 octo login --token token123 --server http://ip:port
 
@@ -64,7 +91,7 @@ Octo consists of three main components:
 ```
 ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
 │   Client     │───────▶│    Server    │───────▶│    Runner    │
-│  (Submitter) │        │  (Queue)     │        │  (Executor)  │
+│ (Submitter)  │        │   (Queue)    │        │  (Executor)  │
 └──────────────┘        └──────────────┘        └──────────────┘
 ```
 
