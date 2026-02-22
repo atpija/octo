@@ -10,6 +10,8 @@
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
 
+More Information: https://www.project-octo.com/
+
 ## Key Features
 
 - **Multi-Language Support**: Python, JavaScript, Go, Rust, Ruby, and more
