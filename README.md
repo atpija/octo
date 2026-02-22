@@ -226,14 +226,16 @@ octo/
 
 ## License
 
-This project is licensed under the Custom Octo License. See [LICENSE](LICENSE) file for details.
+Octo is licensed under either of
 
-**Key Terms:**
-- Free for personal, research, commercial, and educational use
-- Modify and distribute in binary form for non-commercial use
-- Include in larger systems
-- Cannot sell or redistribute source code commercially
-- Cannot remove copyright notices
+    Apache License, Version 2.0, (LICENSE-APACHE or https://www.apache.org/licenses/LICENSE-2.0)
+    MIT license (LICENSE-MIT or https://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in Octo by you, as defined in the Apache-2.0 license, shall be dually licensed as above, without any additional terms or conditions.
+
+## Contact
 
 - **Project Lead**: Jan Pirringer
 - **Email**: help@project-octo.com
