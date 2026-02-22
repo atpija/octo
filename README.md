@@ -176,10 +176,10 @@ octo-runner --token demo-token
 # Start runner connecting to custom server
 octo-runner --token demo-token --server http://192.168.1.100:5001
 
-# Multiple runners for parallel execution
-octo-runner --token runner1 --server http://server:5000 &
-octo-runner --token runner2 --server http://server:5000 &
-octo-runner --token runner3 --server http://server:5000 &
+# Multiple runners for parallel execution each runner in its own Terminal/Powershell
+octo-runner --token runner1 --server http://server:5000 
+octo-runner --token runner2 --server http://server:5000 
+octo-runner --token runner3 --server http://server:5000 
 ```
 
 ## Configuration
