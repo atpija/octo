@@ -39,7 +39,34 @@ More Information: https://www.project-octo.com/
 - Docker
 - pip package manager
 
-### Installation
+### Install Octo Linux
+client
+```bash
+curl -fsSL https://www.project-octo.com/install-client.sh | bash
+```
+server
+```bash
+curl -fsSL https://www.project-octo.com/install-server.sh | bash
+```
+runner
+```bash
+curl -fsSL https://www.project-octo.com/install-runner.sh | bash
+```
+
+###  Install Octo Windows
+client
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-client.ps1 | iex"
+```
+server
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-server.ps1 | iex"
+```
+runner
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-runner.ps1 | iex"
+```
+### Build Octo locally
 ```bash
 # Clone the repository
 git clone https://github.com/atpija/octo
