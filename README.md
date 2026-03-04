@@ -35,9 +35,7 @@ More Information: https://www.project-octo.com/
 ## Quick Start
 
 ### Prerequisites
-- Python 3.11 or higher
-- Docker
-- pip package manager
+- Docker on your remote Machine
 
 ### Install Octo Linux
 client
@@ -66,6 +64,11 @@ runner
 ```bash
 powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-runner.ps1 | iex"
 ```
+### Prerequisites for Build
+- Python 3.11 or higher
+- pip package manager
+- Docker on your remote/local Machine (for testing)
+
 ### Build Octo locally
 ```bash
 # Clone the repository
