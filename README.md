@@ -4,11 +4,13 @@
 
 # Octo - Remote Code Execution Platform
 
-[![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-yellow.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
+
+More Information: https://www.project-octo.com/
 
 ## Key Features
 
@@ -33,20 +35,77 @@ Octo is a distributed remote code execution platform that enables seamless execu
 ## Quick Start
 
 ### Prerequisites
+- Docker on your remote Machine
+
+### Install Octo Linux
+client - on local PC/Notebook
+```bash
+curl -fsSL https://www.project-octo.com/install-client.sh | bash
+```
+server - on remote PC/High End Workstation
+```bash
+curl -fsSL https://www.project-octo.com/install-server.sh | bash
+```
+runner - on remote PC/High End Workstation
+```bash
+curl -fsSL https://www.project-octo.com/install-runner.sh | bash
+```
+
+###  Install Octo Windows
+client - on local PC/Notebook
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-client.ps1 | iex"
+```
+server - on remote PC/High End Workstation
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-server.ps1 | iex"
+```
+runner - on remote PC/High End Workstation
+```bash
+powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-runner.ps1 | iex"
+```
+### Prerequisites for Build
 - Python 3.11 or higher
-- Docker
 - pip package manager
+- Docker on your remote/local Machine (for testing)
 
-### Installation
-
+### Build Octo locally
 ```bash
 # Clone the repository
 git clone https://github.com/atpija/octo
 
+### Getting Started
+# Build each Component
+
+cd client
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+cd server
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+cd runner
+chmod +x build_installer.sh (Linux)
+./build_installer.sh (Linux) | ./build_installer.ps1 (Windows)
+
+# Install each Component
+sudo dpkg -i octo-xy.deb (Linux)
+
+Run the setup.exe for each Component (Windows)
+```
 
 ### Basic Usage
-
+You can run Octo local also for test purpose, start server and runner in a seperate Terminal/Powershell window.
 ```bash
+# First add a token
+octo-server token-add token123
+# Run the Server
+octo-server server
+
+# Start the Runner in a seperate Terminal/Powershell
+octo-runner --token token123
+
 # Login to server
 octo login --token token123 --server http://ip:port
 
@@ -64,7 +123,7 @@ Octo consists of three main components:
 ```
 ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
 │   Client     │───────▶│    Server    │───────▶│    Runner    │
-│  (Submitter) │        │  (Queue)     │        │  (Executor)  │
+│ (Submitter)  │        │   (Queue)    │        │  (Executor)  │
 └──────────────┘        └──────────────┘        └──────────────┘
 ```
 
@@ -149,10 +208,10 @@ octo-runner --token demo-token
 # Start runner connecting to custom server
 octo-runner --token demo-token --server http://192.168.1.100:5001
 
-# Multiple runners for parallel execution
-octo-runner --token runner1 --server http://server:5000 &
-octo-runner --token runner2 --server http://server:5000 &
-octo-runner --token runner3 --server http://server:5000 &
+# Multiple runners for parallel execution each runner in its own Terminal/Powershell
+octo-runner --token runner1 --server http://server:5000 
+octo-runner --token runner2 --server http://server:5000 
+octo-runner --token runner3 --server http://server:5000 
 ```
 
 ## Configuration
@@ -199,14 +258,16 @@ octo/
 
 ## License
 
-This project is licensed under the Custom Octo License. See [LICENSE](LICENSE) file for details.
+Octo is licensed under either of
 
-**Key Terms:**
-- Free for personal, research, commercial, and educational use
-- Modify and distribute in binary form for non-commercial use
-- Include in larger systems
-- Cannot sell or redistribute source code commercially
-- Cannot remove copyright notices
+    Apache License, Version 2.0, (LICENSE-APACHE or https://www.apache.org/licenses/LICENSE-2.0)
+    MIT license (LICENSE-MIT or https://opensource.org/licenses/MIT)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in Octo by you, as defined in the Apache-2.0 license, shall be dually licensed as above, without any additional terms or conditions.
+
+## Contact
 
 - **Project Lead**: Jan Pirringer
 - **Email**: help@project-octo.com
