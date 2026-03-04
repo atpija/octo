@@ -38,29 +38,29 @@ More Information: https://www.project-octo.com/
 - Docker on your remote Machine
 
 ### Install Octo Linux
-client
+client - on local PC/Notebook
 ```bash
 curl -fsSL https://www.project-octo.com/install-client.sh | bash
 ```
-server
+server - on remote PC/High End Workstation
 ```bash
 curl -fsSL https://www.project-octo.com/install-server.sh | bash
 ```
-runner
+runner - on remote PC/High End Workstation
 ```bash
 curl -fsSL https://www.project-octo.com/install-runner.sh | bash
 ```
 
 ###  Install Octo Windows
-client
+client - on local PC/Notebook
 ```bash
 powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-client.ps1 | iex"
 ```
-server
+server - on remote PC/High End Workstation
 ```bash
 powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-server.ps1 | iex"
 ```
-runner
+runner - on remote PC/High End Workstation
 ```bash
 powershell -ExecutionPolicy Bypass -c "irm https://www.project-octo.com/install-runner.ps1 | iex"
 ```
