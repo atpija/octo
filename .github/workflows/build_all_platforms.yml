@@ -196,7 +196,7 @@ jobs:
       - name: Verify Octo installation in WSL
         shell: powershell
         run: |
-          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
+          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --version"
 
 # ============================================================
 # Test Set (PARALLEL, OCTO ORCHESTRATED)
