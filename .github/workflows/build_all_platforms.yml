@@ -257,7 +257,8 @@ jobs:
             "test_daily.py",
             "test_file_upload.py",
             "test_docker.py",
-            "test_install_feat.py"
+            "test_install_feat.py",
+            "test_build.py"
           )
           $jobs = @()
           $exitCodeFiles = @()
