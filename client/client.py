@@ -13,6 +13,16 @@ from pathlib import Path
 
 app = typer.Typer(help="Octo Client CLI")
 
+# --- Version ---
+def version_callback(value: bool):
+    if value:
+        typer.echo("octo 0.2.1")
+        raise typer.Exit()
+
+@app.callback()
+def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
+    pass
+
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 

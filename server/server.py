@@ -18,6 +18,15 @@ os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 cli = typer.Typer(help="Octo Server CLI")
 
+# --- Version ---
+def version_callback(value: bool):
+    if value:
+        typer.echo("octo-server 0.2.1")
+        raise typer.Exit()
+
+@cli.callback()  # <-- cli statt app
+def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
+    pass
 
 ascii_art = r"""
                 __       

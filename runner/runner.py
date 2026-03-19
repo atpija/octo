@@ -3,6 +3,17 @@
 import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform
 
 cli = typer.Typer(help="Octo Runner CLI")
+
+# --- Version ---
+def version_callback(value: bool):
+    if value:
+        typer.echo("octo-runner 0.2.1")
+        raise typer.Exit()
+
+@cli.callback()  # <-- cli statt app
+def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
+    pass
+
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
 ascii_art = r"""
