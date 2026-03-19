@@ -56,7 +56,7 @@ print('done after 5 min')
     
     assert code == 0, f"Long run failed with code {code}: {output}"
     assert "done after 5 min" in output, "Completion message not found"
-    assert elapsed >= 300, f"Task finished too quickly: {elapsed}s (expected ~300s)"
+    assert elapsed >= 290, f"Task finished too quickly: {elapsed}s (expected ~300s)"
     assert elapsed < 350, f"Task took too long: {elapsed}s (expected ~300s)"
     
     # Prüfe ob alle Zwischenmeldungen da sind

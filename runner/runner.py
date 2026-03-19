@@ -10,7 +10,7 @@ def version_callback(value: bool):
         typer.echo("octo-runner 0.2.1")
         raise typer.Exit()
 
-@cli.callback()  # <-- cli statt app
+@cli.callback()
 def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
     pass
 
@@ -110,7 +110,7 @@ def save_token(token, server):
 # ---------------------------
 
 def poll_task(server, token):
-    """Fragt einen Task ab und lädt das ZIP herunter."""
+    #Polls task and downloads archive
     try:
         res = requests.post(f"{server}/get_task", json={"token": token})
         if res.ok:
@@ -123,7 +123,9 @@ def poll_task(server, token):
 
                 resp = requests.get(archive_url)
                 if resp.ok:
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+                    # Dateiendung je nach Task-Typ setzen
+                    suffix = ".dockerfile" if task.get("type") == "build" else ".zip"
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                     tmp.write(resp.content)
                     tmp.close()
                     task["archive_file"] = tmp.name
@@ -133,7 +135,7 @@ def poll_task(server, token):
     return None
 
 def send_output(server, task_id, line):
-    """Sendet Output-Zeile zurück an den Server."""
+    # sends back output line by line to server
     try:
         requests.post(f"{server}/submit_output/{task_id}", json={"line": line})
     except Exception as e:
@@ -146,7 +148,6 @@ def zip_new_files(workdir, orig_files):
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
     with zipfile.ZipFile(tmp.name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(workdir):
-            # bestimmte Verzeichnisse ignorieren
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
             for f in files:
@@ -156,7 +157,6 @@ def zip_new_files(workdir, orig_files):
                 abs_path = os.path.join(root, f)
                 rel_path = os.path.relpath(abs_path, workdir)
 
-                # nur neue/geänderte Files packen
                 if rel_path not in orig_files:
                     zf.write(abs_path, rel_path)
     return tmp.name
@@ -164,17 +164,14 @@ def zip_new_files(workdir, orig_files):
 def build_execution_command(entry_file, workdir, auto_install, file_ext, file_config):
     """Builds the execution command based on file type."""
     
-    # Check if package manager file exists
     package_file_path = None
     if file_config.get('package_file'):
         package_file_path = os.path.join(workdir, file_config['package_file'])
     
-    # Build install command if auto_install is enabled
     install_cmd = ""
     if auto_install and package_file_path and os.path.exists(package_file_path) and file_config.get('install_cmd'):
         install_cmd = f"{file_config['install_cmd']} && "
     
-    # Build execution command based on file type
     if file_ext == '.py':
         exec_cmd = f"python -u /workspace/{entry_file}"
     
@@ -194,7 +191,6 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
         exec_cmd = f"node /workspace/{entry_file}"
     
     elif file_ext == '.ts':
-        # For TypeScript, we need ts-node or compile first
         if auto_install:
             exec_cmd = f"npx ts-node /workspace/{entry_file}"
         else:
@@ -212,18 +208,14 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
     
     elif file_ext == '.rs':
         if os.path.exists(os.path.join(workdir, 'Cargo.toml')):
-            # Rust project with Cargo
             exec_cmd = "cargo run"
         else:
-            # Single Rust file
             exec_cmd = f"rustc /workspace/{entry_file} -o /workspace/output && chmod +x /workspace/output && /workspace/output"
     
     else:
         raise ValueError(f"Unsupported file type: {file_ext}")
     
-    # Combine install and exec commands
     full_cmd = f"{install_cmd}{exec_cmd}"
-    
     return ["sh", "-c", full_cmd]
 
 # ---------------------------
@@ -254,17 +246,11 @@ def runner(
             # --- BUILD TASK ---
             if task_type == "build":
                 tag = task["tag"]
-                archive_url = task["archive"]
-                if archive_url.startswith("/"):
-                    archive_url = server.rstrip("/") + archive_url
-
                 typer.secho(f"{typer.style('[BUILD]', fg='cyan')} Building image: {tag}")
                 tmp_dir = tempfile.mkdtemp()
                 try:
-                    resp = requests.get(archive_url)
                     dockerfile_path = os.path.join(tmp_dir, "Dockerfile")
-                    with open(dockerfile_path, "wb") as f:
-                        f.write(resp.content)
+                    shutil.copy(task["archive_file"], dockerfile_path)
 
                     proc = subprocess.Popen(
                         ["docker", "build", "-t", tag, "-f", dockerfile_path, tmp_dir],
@@ -287,6 +273,8 @@ def runner(
                     typer.secho(f"{typer.style('[ERROR]', fg='red')} Exception: {e}")
                 finally:
                     shutil.rmtree(tmp_dir, ignore_errors=True)
+                    if os.path.exists(task["archive_file"]):
+                        os.remove(task["archive_file"])
 
             # --- RUN TASK ---
             else:
@@ -299,7 +287,6 @@ def runner(
                 cpu = task.get("cpu")
                 shm_size = task.get("shm_size")
 
-                # Detect file type
                 file_ext = os.path.splitext(entry_file)[1].lower()
                 
                 if file_ext not in FILE_TYPE_CONFIG:
@@ -309,8 +296,6 @@ def runner(
                     continue
                 
                 file_config = FILE_TYPE_CONFIG[file_ext]
-                
-                # Determine Docker image (task can override default)
                 docker_image = task.get("docker_image") or file_config['default_image']
 
                 typer.secho(f"{typer.style('[RUN]', fg='cyan')} Running Task {task_id} ({file_ext} file) using image {docker_image}")
@@ -328,7 +313,6 @@ def runner(
                         send_output(server, task_id, "[TASK_FAILED]")
                         continue
 
-                    # --- Originaldateien merken ---
                     orig_files = []
                     for root, dirs, files in os.walk(workdir):
                         dirs[:] = [d for d in dirs if d not in {"venv", "node_modules", "target", ".git"}]
@@ -336,7 +320,6 @@ def runner(
                             rel_path = os.path.relpath(os.path.join(root, f), workdir)
                             orig_files.append(rel_path)
 
-                    # Docker base command
                     docker_cmd = [
                         "docker", "run", "--rm",
                         "-v", f"{workdir}:/workspace",
@@ -358,7 +341,6 @@ def runner(
 
                     docker_cmd.append(docker_image)
 
-                    # Build execution command
                     exec_cmd = build_execution_command(entry_file, workdir, auto_install, file_ext, file_config)
                     docker_cmd.extend(exec_cmd)
 
@@ -371,7 +353,6 @@ def runner(
                         send_output(server, task_id, line.rstrip())
                     proc.wait()
 
-                    # --- Neue/geänderte Dateien zippen und an Server schicken ---
                     output_zip = zip_new_files(workdir, orig_files)
                     with open(output_zip, "rb") as f:
                         try:
@@ -400,5 +381,6 @@ def runner(
                         shutil.rmtree(workdir)
         else:
             time.sleep(2)
+
 if __name__ == "__main__":
     cli()
