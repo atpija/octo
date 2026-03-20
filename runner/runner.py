@@ -22,7 +22,7 @@ FILE_TYPE_CONFIG = {
     '.py': {
         'default_image': 'python:3.11-slim',
         'package_file': 'requirements.txt',
-        'install_cmd': 'pip install uv -q && uv pip install --system -r /workspace/requirements.txt',
+        'install_cmd': 'pip install uv -q --no-cache-dir --disable-pip-version-check && /workspace/.local/bin/uv pip install --target /workspace/.packages --no-cache -r /workspace/requirements.txt',
     },
     '.js': {
         'default_image': 'node:latest',
@@ -132,7 +132,7 @@ def send_output(server, task_id, line):
         typer.secho(f"{typer.style('[ERROR]', fg='red')} Error while sending output: {e}")
 
 def zip_new_files(workdir, orig_files):
-    exclude_dirs = {"venv", ".local", "__pycache__", "node_modules", "target", ".git"}
+    exclude_dirs = {"venv", ".local", "__pycache__", "node_modules", "target", ".git", ".packages", ".uv-cache"}
     exclude_ext = {".pyc", ".pyo", ".o", ".so", ".dll"}
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
@@ -163,7 +163,7 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
         install_cmd = f"{file_config['install_cmd']} && "
     
     if file_ext == '.py':
-        exec_cmd = f"python -u /workspace/{entry_file}"
+        exec_cmd = f"PYTHONPATH=/workspace/.packages python -u /workspace/{entry_file}"
     
     elif file_ext == '.sh':
         exec_cmd = f"chmod +x /workspace/{entry_file} && sh /workspace/{entry_file}"
@@ -314,7 +314,7 @@ def runner(
 
                     orig_files = []
                     for root, dirs, files in os.walk(workdir):
-                        dirs[:] = [d for d in dirs if d not in {"venv", "node_modules", "target", ".git"}]
+                        dirs[:] = [d for d in dirs if d not in {"venv", "node_modules", "target", ".git", ".packages", ".uv-cache"}]
                         for f in files:
                             rel_path = os.path.relpath(os.path.join(root, f), workdir)
                             orig_files.append(rel_path)
