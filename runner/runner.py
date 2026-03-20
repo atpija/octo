@@ -22,7 +22,7 @@ FILE_TYPE_CONFIG = {
     '.py': {
         'default_image': 'python:3.11-slim',
         'package_file': 'requirements.txt',
-        'install_cmd': 'pip install uv -q --no-cache-dir --disable-pip-version-check && /workspace/.local/bin/uv pip install --target /workspace/.packages --no-cache -r /workspace/requirements.txt',
+        'install_cmd': 'pip install -r /workspace/requirements.txt',
     },
     '.js': {
         'default_image': 'node:latest',
@@ -163,7 +163,7 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
         install_cmd = f"{file_config['install_cmd']} && "
     
     if file_ext == '.py':
-        exec_cmd = f"PYTHONPATH=/workspace/.packages python -u /workspace/{entry_file}"
+        exec_cmd = f"python -u /workspace/{entry_file}"
     
     elif file_ext == '.sh':
         exec_cmd = f"chmod +x /workspace/{entry_file} && sh /workspace/{entry_file}"

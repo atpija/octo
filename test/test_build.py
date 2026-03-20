@@ -114,22 +114,22 @@ def test_parallel_builds(tmp_path):
 
 
 # --------------------------------
-# uv install Tests
+# install Tests
 # --------------------------------
 
-def test_uv_install_basic(tmp_path):
-    """uv: requirements.txt wird installiert"""
+def test_install_basic(tmp_path):
+    """install: requirements.txt wird installiert"""
     (tmp_path / "requirements.txt").write_text("httpx\n")
     (tmp_path / "main.py").write_text("import httpx; print(f'httpx ok: {httpx.__version__}')")
 
     run_cmd(["octo", "config", "--install"])
     code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=60)
-    assert code == 0, f"uv install basic failed: {output}"
+    assert code == 0, f"install basic failed: {output}"
     assert "httpx ok:" in output, "httpx was not installed or imported"
 
 
-def test_uv_install_multiple_packages(tmp_path):
-    """uv: mehrere Pakete aus requirements.txt"""
+def test_install_multiple_packages(tmp_path):
+    """install: mehrere Pakete aus requirements.txt"""
     (tmp_path / "requirements.txt").write_text("httpx\nrich\n")
     (tmp_path / "main.py").write_text(
         "import httpx; from rich import __version__ as rich_v; print(f'httpx={httpx.__version__} rich={rich_v}')"
@@ -137,24 +137,24 @@ def test_uv_install_multiple_packages(tmp_path):
 
     run_cmd(["octo", "config", "--install"])
     code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=60)
-    assert code == 0, f"uv multi-package install failed: {output}"
+    assert code == 0, f"multi-package install failed: {output}"
     assert "httpx=" in output
     assert "rich=" in output
 
 
-def test_uv_install_pinned_version(tmp_path):
-    """uv: pinned Paketversion aus requirements.txt"""
+def test_install_pinned_version(tmp_path):
+    """install: pinned Paketversion aus requirements.txt"""
     (tmp_path / "requirements.txt").write_text("httpx==0.27.0\n")
     (tmp_path / "main.py").write_text("import httpx; print(f'version={httpx.__version__}')")
 
     run_cmd(["octo", "config", "--install"])
     code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=60)
-    assert code == 0, f"uv pinned version failed: {output}"
+    assert code == 0, f"pinned version failed: {output}"
     assert "0.27.0" in output, "Expected pinned version 0.27.0"
 
 
-def test_uv_install_invalid_package(tmp_path):
-    """uv: ungültiges Paket – muss fehlschlagen"""
+def test_install_invalid_package(tmp_path):
+    """install: ungültiges Paket – muss fehlschlagen"""
     (tmp_path / "requirements.txt").write_text("this-package-does-not-exist-xyz-99999\n")
     (tmp_path / "main.py").write_text("print('should not reach here')")
 
@@ -165,8 +165,8 @@ def test_uv_install_invalid_package(tmp_path):
         f"Expected install error, got: {output}"
 
 
-def test_uv_noinstall_ignores_requirements(tmp_path):
-    """uv: --noinstall ignoriert requirements.txt"""
+def test_noinstall_ignores_requirements(tmp_path):
+    """install: --noinstall ignoriert requirements.txt"""
     (tmp_path / "requirements.txt").write_text("httpx\n")
     (tmp_path / "main.py").write_text("print('no install ok')")
 
@@ -176,31 +176,14 @@ def test_uv_noinstall_ignores_requirements(tmp_path):
     assert "no install ok" in output
 
 
-def test_uv_install_no_requirements_file(tmp_path):
-    """uv: --install aber kein requirements.txt vorhanden – sollte trotzdem laufen"""
+def test_install_no_requirements_file(tmp_path):
+    """install: --install aber kein requirements.txt vorhanden – sollte trotzdem laufen"""
     (tmp_path / "main.py").write_text("print('no requirements ok')")
 
     run_cmd(["octo", "config", "--install"])
     code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=30)
     assert code == 0, f"Run without requirements.txt failed: {output}"
     assert "no requirements ok" in output
-
-
-def test_uv_install_is_faster_than_pip(tmp_path):
-    """uv: uv sollte schneller sein als normales pip (Smoke-Check ob uv aktiv)"""
-    import time
-    (tmp_path / "requirements.txt").write_text("httpx\nrich\npydantic\n")
-    (tmp_path / "main.py").write_text("import httpx, rich, pydantic; print('packages ok')")
-
-    run_cmd(["octo", "config", "--install"])
-    start = time.time()
-    code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=120)
-    elapsed = time.time() - start
-
-    assert code == 0, f"uv speed test failed: {output}"
-    assert "packages ok" in output
-    # uv sollte 3 Pakete in unter 30s installieren können
-    assert elapsed < 30, f"Install took too long ({elapsed:.1f}s) – uv might not be active"
 
 
 # --------------------------------
@@ -220,7 +203,7 @@ def test_build_and_run_python_package(tmp_path):
     assert code == 0, f"Build phase failed: {output}"
 
     run_cmd(["octo", "config", "--docker", image_tag])
-    run_cmd(["octo", "config", "--noinstall"])  # kein uv nötig, Paket ist schon im Image
+    run_cmd(["octo", "config", "--noinstall"])
 
     script = tmp_path / "main.py"
     script.write_text("import httpx; print(f'httpx from image: {httpx.__version__}')")
@@ -272,29 +255,6 @@ def test_build_and_run_custom_python_version(tmp_path):
     assert "python=3.12" in output
 
 
-def test_build_and_run_with_uv_install(tmp_path):
-    """Build+Run: Custom Image mit uv vorinstalliert + uv install on top"""
-    image_tag = "octo-test-uv-combo:latest"
-
-    # Image mit uv bereits drin bauen
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("FROM python:3.11-slim\nRUN pip install uv\n")
-    code, output = run_cmd(["octo", "build", str(dockerfile), "--tag", image_tag], timeout=120)
-    assert code == 0, f"Build for uv combo failed: {output}"
-
-    run_cmd(["octo", "config", "--docker", image_tag])
-    run_cmd(["octo", "config", "--install"])
-
-    # httpx via uv aus requirements.txt installieren lassen
-    (tmp_path / "requirements.txt").write_text("httpx\n")
-    script = tmp_path / "main.py"
-    script.write_text("import httpx; print(f'uv+image combo ok: {httpx.__version__}')")
-
-    code, output = run_cmd(["octo", "run", str(script)], timeout=60)
-    assert code == 0, f"Build+uv combo failed: {output}"
-    assert "uv+image combo ok:" in output
-
-
 def test_build_and_run_env_variable(tmp_path):
     """Build+Run: ENV Variable im Dockerfile setzen und im Script lesen"""
     image_tag = "octo-test-env:latest"
@@ -344,12 +304,10 @@ def test_build_run_output_files(tmp_path):
 
 def test_build_failed_run_still_works(tmp_path):
     """Build+Run: fehlgeschlagener Build blockiert keine weiteren Runs"""
-    # Erst einen fehlschlagenden Build schicken
     bad_dockerfile = tmp_path / "Dockerfile"
     bad_dockerfile.write_text("FROM nonexistent-xyz:latest")
     run_cmd(["octo", "build", str(bad_dockerfile), "--tag", "octo-test-shouldfail:latest"])
 
-    # Danach normaler Run muss trotzdem funktionieren
     run_cmd(["octo", "config", "--docker", DEFAULT_DOCKER_IMAGE])
     script = tmp_path / "main.py"
     script.write_text("print('still works after failed build')")
