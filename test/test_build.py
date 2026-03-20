@@ -139,6 +139,12 @@ def test_install_multiple_packages(tmp_path):
     code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=60)
     assert code == 0, f"multi-package install failed: {output}"
     assert "httpx=" in output
+    assert "packages ok" in output 
+
+    run_cmd(["octo", "config", "--install"])
+    code, output = run_cmd(["octo", "run", str(tmp_path / "main.py")], timeout=60)
+    assert code == 0, f"multi-package install failed: {output}"
+    assert "httpx=" in output
     assert "rich=" in output
 
 
