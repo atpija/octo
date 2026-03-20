@@ -17,22 +17,20 @@ ls -lh "$INPUT_DIR"
 
 echo "Installing debs"
 sudo -n dpkg -i \
-  "$INPUT_DIR"/octo-server*.deb \
-  "$INPUT_DIR"/octo-runner*.deb \
-  || sudo -n apt-get -f install -y
+    "$INPUT_DIR"/octo-server*.deb \
+    "$INPUT_DIR"/octo-runner*.deb \
+    || sudo -n apt-get -f install -y
 
 echo "Restarting services"
-sudo -n systemctl restart octo-server || true
-sudo -n systemctl restart octo-runner || true
+sudo -n systemctl stop octo-runner@demo-token1 || true
+sudo -n systemctl stop octo-runner@demo-token2 || true
+sudo -n systemctl stop octo-runner@demo-token3 || true
+sudo -n systemctl stop octo-server || true
 
 echo "Octo installation/update complete"
-
 echo "Enabling and starting services"
-# Server starten
-sudo systemctl enable --now octo-server
 
-# Runner starten (Token-abhängig)
+sudo systemctl enable --now octo-server
 sudo systemctl enable --now octo-runner@demo-token1
 sudo systemctl enable --now octo-runner@demo-token2
 sudo systemctl enable --now octo-runner@demo-token3
-
