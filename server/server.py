@@ -187,6 +187,7 @@ def submit_output(task_id):
     if task_id not in task_output:
         return jsonify({"error": "Unknown task"}), 404
     if line == "[TASK_DONE]":
+        task_output[task_id]["lines"].append(line)
         task_output[task_id]["done"] = True
     elif line:
         task_output[task_id]["lines"].append(line)

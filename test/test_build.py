@@ -132,7 +132,7 @@ def test_install_multiple_packages(tmp_path):
     """install: mehrere Pakete aus requirements.txt"""
     (tmp_path / "requirements.txt").write_text("httpx\nrich\n")
     (tmp_path / "main.py").write_text(
-        "import httpx; from rich import __version__ as rich_v; print(f'httpx={httpx.__version__} rich={rich_v}')"
+        "import httpx, rich; print(f'httpx={httpx.__version__} packages ok')"
     )
 
     run_cmd(["octo", "config", "--install"])
