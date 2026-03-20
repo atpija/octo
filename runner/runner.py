@@ -4,16 +4,6 @@ import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, p
 
 cli = typer.Typer(help="Octo Runner CLI")
 
-# --- Version ---
-def version_callback(value: bool):
-    if value:
-        typer.echo("octo-runner 0.2.1")
-        raise typer.Exit()
-
-@cli.callback()
-def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
-    pass
-
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
 ascii_art = r"""
@@ -224,9 +214,18 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
 
 @cli.command()
 def runner(
-    token: str = typer.Option(..., help="Authentication token"),
-    server: str = typer.Option(None, help="Server URL")
+    token: str = typer.Option(None, help="REQUIRED! Authentication token"),
+    server: str = typer.Option(None, help="Server URL"),
+    version: bool = typer.Option(False, "--version", help="Show version", is_eager=True)
 ):
+    if version:
+        typer.echo("octo-runner 0.2.1")
+        raise typer.Exit()
+    
+    if token is None:
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Missing option '--token'")
+        raise typer.Exit(1)
+
     typer.echo(ascii_art)
 
     cfg = load_config()
