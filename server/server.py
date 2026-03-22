@@ -18,6 +18,15 @@ os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
 cli = typer.Typer(help="Octo Server CLI")
 
+# --- Version ---
+def version_callback(value: bool):
+    if value:
+        typer.echo("octo-server 0.2.1")
+        raise typer.Exit()
+
+@cli.callback()  # <-- cli statt app
+def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
+    pass
 
 ascii_art = r"""
                 __       
@@ -86,6 +95,46 @@ def submit():
 
     return jsonify({"task_id": task_id})
 
+@app.route("/build", methods=["POST"])
+def build():
+    token = request.form.get("token")
+    tag = request.form.get("tag")
+
+    cfg = load_config()
+    if token not in cfg["valid_tokens"]:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    file = request.files.get("dockerfile")
+    if not file or not tag:
+        return jsonify({"error": "dockerfile and tag required"}), 400
+
+    task_id = str(uuid.uuid4())
+    task_folder = os.path.join(TASK_DIR, task_id)
+    os.makedirs(task_folder, exist_ok=True)
+    
+    dockerfile_path = os.path.join(task_folder, "Dockerfile")
+    file.save(dockerfile_path)
+
+    task_output[task_id] = {"lines": [], "done": False}
+
+    # Build-Task mit speziellem Typ
+    task = {
+        "id": task_id,
+        "type": "build",        # <-- unterscheidet Build von Run
+        "tag": tag,
+        "dockerfile_path": f"/download_dockerfile/{task_id}",
+    }
+    task_queue.put(task)
+
+    return jsonify({"task_id": task_id})
+
+@app.route("/download_dockerfile/<task_id>")
+def download_dockerfile(task_id):
+    path = os.path.join(TASK_DIR, task_id, "Dockerfile")
+    if not os.path.exists(path):
+        return jsonify({"error": "Not found"}), 404
+    return send_file(os.path.abspath(path), as_attachment=True)
+
 @app.route("/get_task", methods=["POST"])
 def get_task():
     data = request.get_json(silent=True) or {}
@@ -96,9 +145,23 @@ def get_task():
 
     try:
         task = task_queue.get_nowait()
+    except queue.Empty:
+        return jsonify({"task": None})
+
+    if task.get("type") == "build":
         return jsonify({
             "task": {
                 "id": task["id"],
+                "type": "build",
+                "tag": task["tag"],
+                "archive": task["dockerfile_path"],
+            }
+        })
+    else:
+        return jsonify({
+            "task": {
+                "id": task["id"],
+                "type": "run",
                 "entry": task["entry"],
                 "docker_image": task.get("docker_image"),
                 "auto_install": task.get("auto_install", False),
@@ -109,8 +172,6 @@ def get_task():
                 "archive": f"/download/{task['id']}"
             }
         })
-    except queue.Empty:
-        return jsonify({"task": None})
 
 @app.route("/download/<task_id>")
 def download(task_id):
@@ -126,6 +187,7 @@ def submit_output(task_id):
     if task_id not in task_output:
         return jsonify({"error": "Unknown task"}), 404
     if line == "[TASK_DONE]":
+        task_output[task_id]["lines"].append(line)
         task_output[task_id]["done"] = True
     elif line:
         task_output[task_id]["lines"].append(line)

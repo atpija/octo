@@ -1,6 +1,6 @@
 ; Enhanced Installer for Octo with Environment Variables
 !define APP_NAME "octo-client"
-!define APP_VERSION "0.2.0"
+!define APP_VERSION "0.2.1"
 !define APP_EXE_NAME "octo.exe"
 !define COMPANY_NAME "Jan Pirringer"
 !define APP_DESCRIPTION "Octo Client Application"

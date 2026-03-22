@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-DEB_DIR="$1"
+DEB_DIR="$1/linux"
 
 echo "Changing directory"
 cd /mnt/c/actions-runner/_work/octo/octo

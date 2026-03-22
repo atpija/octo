@@ -2,7 +2,7 @@
 # server/build_installer.sh
 
 APP_NAME="octo-server"
-VERSION="0.2.0"
+VERSION="0.2.1"
 BUILD_DIR="build"
 INSTALL_DIR="$BUILD_DIR/usr/local/bin"
 DEB_DIR="$BUILD_DIR/DEBIAN"

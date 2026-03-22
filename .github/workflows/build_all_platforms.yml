@@ -12,6 +12,11 @@ on:
           - all
           - windows
           - linux
+      upload_artifacts:
+        description: 'Build-Artefakte hochladen?'
+        required: true
+        type: boolean
+        default: false
 
 env:
   OCTO_TOKEN: demo-token
@@ -61,7 +66,7 @@ jobs:
           Get-ChildItem windows_exes
       
       # ------------------------------------------------------------
-      # LOCAL ARTEFACT CACHE (NEW)
+      # LOCAL ARTEFACT CACHE
       # ------------------------------------------------------------
       - name: Cache .exe files locally
         shell: powershell
@@ -79,7 +84,7 @@ jobs:
       # Upload Artefacts (7 Tage)
       # -------------------------------------------------
       - name: Upload Octo Windows packages
-        if: always()
+        if: always() && github.event.inputs.upload_artifacts == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: octo-windows-packages
@@ -136,7 +141,7 @@ jobs:
           Get-ChildItem docker_debs
       
       # ------------------------------------------------------------
-      # LOCAL ARTEFACT CACHE (NEW)
+      # LOCAL ARTEFACT CACHE
       # ------------------------------------------------------------
       - name: Cache .deb files locally
         shell: powershell
@@ -154,7 +159,7 @@ jobs:
       # Upload Artefacts (7 Tage)
       # -------------------------------------------------
       - name: Upload Octo Linux packages
-        if: always()
+        if: always() && github.event.inputs.upload_artifacts == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: octo-linux-packages
@@ -196,7 +201,7 @@ jobs:
       - name: Verify Octo installation in WSL
         shell: powershell
         run: |
-          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --help"
+          wsl bash -lc "echo 'WSL OK'; which octo-server; which octo-runner; octo-server --version"
 
 # ============================================================
 # Test Set (PARALLEL, OCTO ORCHESTRATED)
@@ -257,7 +262,8 @@ jobs:
             "test_daily.py",
             "test_file_upload.py",
             "test_docker.py",
-            "test_install_feat.py"
+            "test_install_feat.py",
+            "test_build.py"
           )
           $jobs = @()
           $exitCodeFiles = @()
@@ -323,7 +329,7 @@ jobs:
       # Upload Reports (7 Tage)
       # -------------------------------------------------
       - name: Upload pytest reports
-        if: always()
+        if: always() && github.event.inputs.upload_artifacts == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: pytest-reports

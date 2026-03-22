@@ -13,6 +13,16 @@ from pathlib import Path
 
 app = typer.Typer(help="Octo Client CLI")
 
+# --- Version ---
+def version_callback(value: bool):
+    if value:
+        typer.echo("octo 0.2.1")
+        raise typer.Exit()
+
+@app.callback()
+def main(version: bool = typer.Option(None, "--version", callback=version_callback, is_eager=True)):
+    pass
+
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/config.json")
 os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
 
@@ -228,6 +238,51 @@ def config(
 
     if not (docker or install is not None or gpu or ram or cpu or shm_size or show):
         typer.secho(f"{typer.style('[INFO]', fg='yellow')} Options: --docker IMAGE | --install/--noinstall | --gpu OPT | --ram OPT | --cpu OPT | --shm-size OPT | --show")
+
+@app.command()
+def build(
+    dockerfile: str = typer.Argument(..., help="Path to Dockerfile"),
+    tag: str = typer.Option(..., "--tag", "-t", help="Image name:tag, e.g. myimage:latest")
+):
+    """Builds a Docker image on the Runner from a Dockerfile."""
+    cfg = load_config()
+    
+    dockerfile_abs = os.path.abspath(dockerfile)
+    if not os.path.isfile(dockerfile_abs):
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Dockerfile not found: {dockerfile_abs}")
+        sys.exit(1)
+
+    typer.secho(f"{typer.style('[BUILD]', fg='cyan')} Sending Dockerfile to server...")
+
+    with open(dockerfile_abs, "rb") as f:
+        res = requests.post(
+            f"{cfg['server']}/build",
+            data={"token": cfg["token"], "tag": tag},
+            files={"dockerfile": f},
+            timeout=60
+        )
+
+    if not res.ok:
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} {res.text}")
+        sys.exit(1)
+
+    task_id = res.json()["task_id"]
+    typer.secho(f"{typer.style('[WAIT]', fg='yellow')} Building image '{tag}'...\n")
+
+    with requests.get(f"{cfg['server']}/stream/{task_id}", stream=True) as r:
+        for line in r.iter_lines():
+            if not line:
+                continue
+            msg = line.decode().strip()
+            if msg == "[TASK_DONE]":
+                typer.secho(f"{typer.style('[OK]', fg='green')} Image '{tag}' built successfully")
+                break
+            elif msg == "[TASK_FAILED]":
+                typer.secho(f"{typer.style('[ERROR]', fg='red')} Build failed")
+                sys.exit(1)
+            else:
+                print(msg)
+            sys.stdout.flush()
 
 if __name__ == "__main__":
     app()

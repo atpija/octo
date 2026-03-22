@@ -3,6 +3,7 @@
 import time, requests, tempfile, os, typer, zipfile, subprocess, shutil, json, platform
 
 cli = typer.Typer(help="Octo Runner CLI")
+
 CONFIG_PATH = os.path.expanduser("~/.remotecompute/serverconfig.json")
 
 ascii_art = r"""
@@ -99,7 +100,7 @@ def save_token(token, server):
 # ---------------------------
 
 def poll_task(server, token):
-    """Fragt einen Task ab und lädt das ZIP herunter."""
+    #Polls task and downloads archive
     try:
         res = requests.post(f"{server}/get_task", json={"token": token})
         if res.ok:
@@ -112,7 +113,9 @@ def poll_task(server, token):
 
                 resp = requests.get(archive_url)
                 if resp.ok:
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+                    # Dateiendung je nach Task-Typ setzen
+                    suffix = ".dockerfile" if task.get("type") == "build" else ".zip"
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                     tmp.write(resp.content)
                     tmp.close()
                     task["archive_file"] = tmp.name
@@ -122,20 +125,19 @@ def poll_task(server, token):
     return None
 
 def send_output(server, task_id, line):
-    """Sendet Output-Zeile zurück an den Server."""
+    # sends back output line by line to server
     try:
         requests.post(f"{server}/submit_output/{task_id}", json={"line": line})
     except Exception as e:
         typer.secho(f"{typer.style('[ERROR]', fg='red')} Error while sending output: {e}")
 
 def zip_new_files(workdir, orig_files):
-    exclude_dirs = {"venv", ".local", "__pycache__", "node_modules", "target", ".git"}
+    exclude_dirs = {"venv", ".local", "__pycache__", "node_modules", "target", ".git", ".packages", ".uv-cache"}
     exclude_ext = {".pyc", ".pyo", ".o", ".so", ".dll"}
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
     with zipfile.ZipFile(tmp.name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(workdir):
-            # bestimmte Verzeichnisse ignorieren
             dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
             for f in files:
@@ -145,7 +147,6 @@ def zip_new_files(workdir, orig_files):
                 abs_path = os.path.join(root, f)
                 rel_path = os.path.relpath(abs_path, workdir)
 
-                # nur neue/geänderte Files packen
                 if rel_path not in orig_files:
                     zf.write(abs_path, rel_path)
     return tmp.name
@@ -153,17 +154,14 @@ def zip_new_files(workdir, orig_files):
 def build_execution_command(entry_file, workdir, auto_install, file_ext, file_config):
     """Builds the execution command based on file type."""
     
-    # Check if package manager file exists
     package_file_path = None
     if file_config.get('package_file'):
         package_file_path = os.path.join(workdir, file_config['package_file'])
     
-    # Build install command if auto_install is enabled
     install_cmd = ""
     if auto_install and package_file_path and os.path.exists(package_file_path) and file_config.get('install_cmd'):
         install_cmd = f"{file_config['install_cmd']} && "
     
-    # Build execution command based on file type
     if file_ext == '.py':
         exec_cmd = f"python -u /workspace/{entry_file}"
     
@@ -183,7 +181,6 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
         exec_cmd = f"node /workspace/{entry_file}"
     
     elif file_ext == '.ts':
-        # For TypeScript, we need ts-node or compile first
         if auto_install:
             exec_cmd = f"npx ts-node /workspace/{entry_file}"
         else:
@@ -201,18 +198,14 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
     
     elif file_ext == '.rs':
         if os.path.exists(os.path.join(workdir, 'Cargo.toml')):
-            # Rust project with Cargo
             exec_cmd = "cargo run"
         else:
-            # Single Rust file
             exec_cmd = f"rustc /workspace/{entry_file} -o /workspace/output && chmod +x /workspace/output && /workspace/output"
     
     else:
         raise ValueError(f"Unsupported file type: {file_ext}")
     
-    # Combine install and exec commands
     full_cmd = f"{install_cmd}{exec_cmd}"
-    
     return ["sh", "-c", full_cmd]
 
 # ---------------------------
@@ -221,9 +214,18 @@ def build_execution_command(entry_file, workdir, auto_install, file_ext, file_co
 
 @cli.command()
 def runner(
-    token: str = typer.Option(..., help="Authentication token"),
-    server: str = typer.Option(None, help="Server URL")  # Neuer Parameter
+    token: str = typer.Option(None, help="REQUIRED! Authentication token"),
+    server: str = typer.Option(None, help="Server URL"),
+    version: bool = typer.Option(False, "--version", help="Show version", is_eager=True)
 ):
+    if version:
+        typer.echo("octo-runner 0.2.1")
+        raise typer.Exit()
+    
+    if token is None:
+        typer.secho(f"{typer.style('[ERROR]', fg='red')} Missing option '--token'")
+        raise typer.Exit(1)
+
     typer.echo(ascii_art)
 
     cfg = load_config()
@@ -238,115 +240,144 @@ def runner(
         task = poll_task(server, token)
         if task:
             task_id = task["id"]
-            archive_file = task["archive_file"]
-            entry_file = task.get("entry", "main.py")
-            auto_install = task.get("auto_install", False)
+            task_type = task.get("type", "run")
 
-            gpu = task.get("gpu")
-            ram = task.get("ram")
-            cpu = task.get("cpu")
-            shm_size = task.get("shm_size")
+            # --- BUILD TASK ---
+            if task_type == "build":
+                tag = task["tag"]
+                typer.secho(f"{typer.style('[BUILD]', fg='cyan')} Building image: {tag}")
+                tmp_dir = tempfile.mkdtemp()
+                try:
+                    dockerfile_path = os.path.join(tmp_dir, "Dockerfile")
+                    shutil.copy(task["archive_file"], dockerfile_path)
 
-            # Detect file type
-            file_ext = os.path.splitext(entry_file)[1].lower()
-            
-            if file_ext not in FILE_TYPE_CONFIG:
-                typer.secho(f"{typer.style('[ERROR]', fg='red')} Unsupported file type: {file_ext}")
-                send_output(server, task_id, f"[RUNNER ERROR] Unsupported file type: {file_ext}")
-                send_output(server, task_id, "[TASK_FAILED]")
-                continue
-            
-            file_config = FILE_TYPE_CONFIG[file_ext]
-            
-            # Determine Docker image (task can override default)
-            docker_image = task.get("docker_image") or file_config['default_image']
+                    proc = subprocess.Popen(
+                        ["docker", "build", "-t", tag, "-f", dockerfile_path, tmp_dir],
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        text=True, encoding="utf-8"
+                    )
+                    for line in proc.stdout:
+                        send_output(server, task_id, line.rstrip())
+                    proc.wait()
 
-            typer.secho(f"{typer.style('[RUN]', fg='cyan')} Running Task {task_id} ({file_ext} file) using image {docker_image}")
+                    if proc.returncode == 0:
+                        send_output(server, task_id, "[TASK_DONE]")
+                        typer.secho(f"{typer.style('[OK]', fg='green')} Image built: {tag}")
+                    else:
+                        send_output(server, task_id, f"[RUNNER ERROR] docker build exited with {proc.returncode}")
+                        send_output(server, task_id, "[TASK_FAILED]")
+                except Exception as e:
+                    send_output(server, task_id, f"[RUNNER ERROR] {e}")
+                    send_output(server, task_id, "[TASK_FAILED]")
+                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Exception: {e}")
+                finally:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    if os.path.exists(task["archive_file"]):
+                        os.remove(task["archive_file"])
 
-            try:
-                # ZIP entpacken
-                workdir = tempfile.mkdtemp()
-                with zipfile.ZipFile(archive_file, "r") as zf:
-                    zf.extractall(workdir)
+            # --- RUN TASK ---
+            else:
+                archive_file = task["archive_file"]
+                entry_file = task.get("entry", "main.py")
+                auto_install = task.get("auto_install", False)
 
-                typer.secho(f"{typer.style('[INFO]', fg='blue')} Archive extracted to: {workdir}")
-                main_path = os.path.join(workdir, entry_file)
+                gpu = task.get("gpu")
+                ram = task.get("ram")
+                cpu = task.get("cpu")
+                shm_size = task.get("shm_size")
 
-                if not os.path.exists(main_path):
-                    send_output(server, task_id, f"[RUNNER ERROR] Startfile {entry_file} not found")
+                file_ext = os.path.splitext(entry_file)[1].lower()
+                
+                if file_ext not in FILE_TYPE_CONFIG:
+                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Unsupported file type: {file_ext}")
+                    send_output(server, task_id, f"[RUNNER ERROR] Unsupported file type: {file_ext}")
                     send_output(server, task_id, "[TASK_FAILED]")
                     continue
-
-                # --- Originaldateien merken ---
-                orig_files = []
-                for root, dirs, files in os.walk(workdir):
-                    dirs[:] = [d for d in dirs if d not in {"venv", "node_modules", "target", ".git"}]
-                    for f in files:
-                        rel_path = os.path.relpath(os.path.join(root, f), workdir)
-                        orig_files.append(rel_path)
-
-                # Docker base command
-                docker_cmd = [
-                    "docker", "run", "--rm",
-                    "-v", f"{workdir}:/workspace",
-                    "-w", "/workspace",
-                    "-e", "PYTHONUTF8=1",
-                    "-e", "PYTHONDONTWRITEBYTECODE=1",
-                    "-e", "PYTHONUSERBASE=/workspace/.local",
-                ]
                 
-                if platform.system() != "Windows":
-                    uid = os.getuid()
-                    gid = os.getgid()
-                    docker_cmd += ["--user", f"{uid}:{gid}"]
-                
-                if cpu: docker_cmd += ["--cpus", str(cpu)]
-                if ram: docker_cmd += ["--memory", str(ram)]
-                if shm_size: docker_cmd += ["--shm-size", str(shm_size)]
-                if gpu: docker_cmd += ["--gpus", str(gpu)]
+                file_config = FILE_TYPE_CONFIG[file_ext]
+                docker_image = task.get("docker_image") or file_config['default_image']
 
-                docker_cmd.append(docker_image)
+                typer.secho(f"{typer.style('[RUN]', fg='cyan')} Running Task {task_id} ({file_ext} file) using image {docker_image}")
 
-                # Build execution command
-                exec_cmd = build_execution_command(entry_file, workdir, auto_install, file_ext, file_config)
-                docker_cmd.extend(exec_cmd)
+                try:
+                    workdir = tempfile.mkdtemp()
+                    with zipfile.ZipFile(archive_file, "r") as zf:
+                        zf.extractall(workdir)
 
-                typer.secho(f"{typer.style('[DOCKER]', fg='cyan')} Running: {' '.join(docker_cmd)}")
+                    typer.secho(f"{typer.style('[INFO]', fg='blue')} Archive extracted to: {workdir}")
+                    main_path = os.path.join(workdir, entry_file)
 
-                proc = subprocess.Popen(
-                    docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8"
-                )
-                for line in proc.stdout:
-                    send_output(server, task_id, line.rstrip())
-                proc.wait()
+                    if not os.path.exists(main_path):
+                        send_output(server, task_id, f"[RUNNER ERROR] Startfile {entry_file} not found")
+                        send_output(server, task_id, "[TASK_FAILED]")
+                        continue
 
-                # --- Neue/geänderte Dateien zippen und an Server schicken ---
-                output_zip = zip_new_files(workdir, orig_files)
-                with open(output_zip, "rb") as f:
-                    try:
-                        requests.post(f"{server}/submit_output_zip/{task_id}", files={"archive": f})
-                        send_output(server, task_id, "[OUTPUT_DONE]")
-                    except Exception as e:
-                        typer.secho(f"{typer.style('[ERROR]', fg='red')} Error sending output zip: {e}")
-                os.remove(output_zip)
+                    orig_files = []
+                    for root, dirs, files in os.walk(workdir):
+                        dirs[:] = [d for d in dirs if d not in {"venv", "node_modules", "target", ".git", ".packages", ".uv-cache"}]
+                        for f in files:
+                            rel_path = os.path.relpath(os.path.join(root, f), workdir)
+                            orig_files.append(rel_path)
 
-                if proc.returncode == 0:
-                    send_output(server, task_id, "[TASK_DONE]")
-                    typer.secho(f"{typer.style('[OK]', fg='green')} Task done")
-                else:
-                    send_output(server, task_id, f"[RUNNER ERROR] Process exited with {proc.returncode}")
+                    docker_cmd = [
+                        "docker", "run", "--rm",
+                        "-v", f"{workdir}:/workspace",
+                        "-w", "/workspace",
+                        "-e", "PYTHONUTF8=1",
+                        "-e", "PYTHONDONTWRITEBYTECODE=1",
+                        "-e", "PYTHONUSERBASE=/workspace/.local",
+                    ]
+                    
+                    if platform.system() != "Windows":
+                        uid = os.getuid()
+                        gid = os.getgid()
+                        docker_cmd += ["--user", f"{uid}:{gid}"]
+                    
+                    if cpu: docker_cmd += ["--cpus", str(cpu)]
+                    if ram: docker_cmd += ["--memory", str(ram)]
+                    if shm_size: docker_cmd += ["--shm-size", str(shm_size)]
+                    if gpu: docker_cmd += ["--gpus", str(gpu)]
+
+                    docker_cmd.append(docker_image)
+
+                    exec_cmd = build_execution_command(entry_file, workdir, auto_install, file_ext, file_config)
+                    docker_cmd.extend(exec_cmd)
+
+                    typer.secho(f"{typer.style('[DOCKER]', fg='cyan')} Running: {' '.join(docker_cmd)}")
+
+                    proc = subprocess.Popen(
+                        docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8"
+                    )
+                    for line in proc.stdout:
+                        send_output(server, task_id, line.rstrip())
+                    proc.wait()
+
+                    output_zip = zip_new_files(workdir, orig_files)
+                    with open(output_zip, "rb") as f:
+                        try:
+                            requests.post(f"{server}/submit_output_zip/{task_id}", files={"archive": f})
+                            send_output(server, task_id, "[OUTPUT_DONE]")
+                        except Exception as e:
+                            typer.secho(f"{typer.style('[ERROR]', fg='red')} Error sending output zip: {e}")
+                    os.remove(output_zip)
+
+                    if proc.returncode == 0:
+                        send_output(server, task_id, "[TASK_DONE]")
+                        typer.secho(f"{typer.style('[OK]', fg='green')} Task done")
+                    else:
+                        send_output(server, task_id, f"[RUNNER ERROR] Process exited with {proc.returncode}")
+                        send_output(server, task_id, "[TASK_FAILED]")
+                        typer.secho(f"{typer.style('[ERROR]', fg='red')} Process exited with {proc.returncode}")
+
+                except Exception as e:
+                    send_output(server, task_id, f"[RUNNER ERROR] {e}")
                     send_output(server, task_id, "[TASK_FAILED]")
-                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Process exited with {proc.returncode}")
-
-            except Exception as e:
-                send_output(server, task_id, f"[RUNNER ERROR] {e}")
-                send_output(server, task_id, "[TASK_FAILED]")
-                typer.secho(f"{typer.style('[ERROR]', fg='red')} Exception: {e}")
-            finally:
-                if os.path.exists(archive_file):
-                    os.remove(archive_file)
-                if os.path.exists(workdir):
-                    shutil.rmtree(workdir)
+                    typer.secho(f"{typer.style('[ERROR]', fg='red')} Exception: {e}")
+                finally:
+                    if os.path.exists(archive_file):
+                        os.remove(archive_file)
+                    if os.path.exists(workdir):
+                        shutil.rmtree(workdir)
         else:
             time.sleep(2)
 
