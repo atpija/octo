@@ -147,6 +147,7 @@ Octo consists of three main components:
 | `octo config --ram 8g` | Set RAM limit |
 | `octo config --cpu 2` | Set CPU limit |
 | `octo config --shm-size 1g` | Set shared memory size |
+| `octo build Dockerfile --tag myimage:latest` | Builds the Dockerfile in currenty folder on remote runner |
 
 **Examples:**
 
