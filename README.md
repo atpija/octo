@@ -13,10 +13,6 @@ Octo is a distributed remote code execution platform that enables seamless execu
 
 More Information: https://www.project-octo.com/
 
-<div align="center">
-  <img src="octo_logo.png" alt="Octo Logo" width="200">
-</div>
-
 ## Key Features
 
 - **Multi-Language Support**: Python, JavaScript, Go, Rust, Ruby, and more
@@ -28,7 +24,7 @@ More Information: https://www.project-octo.com/
 
 ## Running Code Remote as Simple as Running Local
 <div align="center">
-  <img src="https://www.project-octo.com/images/minishowi.gif" alt="Octo minishow" width="200">
+  <img src="https://www.project-octo.com/images/minishowi.gif" alt="Octo minishow">
 </div>
 
 ## Table of Contents
