@@ -1,12 +1,16 @@
 <div align="center">
-  <img src="octo_logo.png" alt="Octo Logo" width="200">
+  <img src="https://www.project-octo.com/images/octo_logo_better.png" alt="Octo Logo" width="200">
 </div>
 
 # Octo - Remote Code Execution Platform
+<div align="center">
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-yellow.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/2h4GhTe37)
+
+</div>
 
 Octo is a distributed remote code execution platform that enables seamless execution of code in isolated, containerized environments. Execute code on remote servers with easy-to-use CLI commands.
 
@@ -20,6 +24,11 @@ More Information: https://www.project-octo.com/
 - **Resource Management**: Control CPU, RAM, GPU, and shared memory allocation
 - **Real-time Output Streaming**: Monitor execution as it happens
 - **Simple CLI**: Easy-to-use command-line interface
+
+## Running Code Remote as Simple as Running Local
+<div align="center">
+  <img src="https://www.project-octo.com/images/minishowi.gif" alt="Octo minishow">
+</div>
 
 ## Table of Contents
 
